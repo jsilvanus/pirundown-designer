@@ -116,6 +116,102 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
     }
   });
 
+  // Storage proxy endpoints: accessing pirundown (:3400) storage
+  fastify.get("/storage", async (_request, reply) => {
+    const endpoint = `${config.pirundownUrl}/api/v1/storage`;
+    try {
+      const res = await fetch(endpoint);
+      const text = await res.text();
+      reply.type("application/json").status(res.status).send(text);
+    } catch (err: any) {
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+    }
+  });
+
+  fastify.get<{ Params: { id: string } }>("/storage/:id", async (request, reply) => {
+    const endpoint = `${config.pirundownUrl}/api/v1/storage/${request.params.id}`;
+    try {
+      const res = await fetch(endpoint);
+      const text = await res.text();
+      reply.type("application/json").status(res.status).send(text);
+    } catch (err: any) {
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+    }
+  });
+
+  fastify.post<{ Body: { id?: string; name?: string; yaml?: string; state?: any; load?: boolean } }>(
+    "/storage",
+    async (request, reply) => {
+      let yamlContent = request.body.yaml;
+      if (!yamlContent && request.body.state) {
+        try {
+          yamlContent = stateToYaml(request.body.state);
+        } catch (err: any) {
+          return reply.code(400).send({ ok: false, error: `State muunnos epäonnistui: ${err.message}` });
+        }
+      }
+
+      if (!yamlContent) {
+        return reply.code(400).send({ ok: false, error: "YAML-sisältö puuttuu tallennuspyynnöstä." });
+      }
+
+      // Pre-validate locally
+      const validation = yamlToState(yamlContent);
+      if (!validation.valid) {
+        return reply.code(400).send({
+          ok: false,
+          error: "Rundown-dokumentti ei läpäise Zod-validointia",
+          details: validation.errors,
+        });
+      }
+
+      const endpoint = `${config.pirundownUrl}/api/v1/storage`;
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: request.body.id,
+            name: request.body.name,
+            yaml: yamlContent,
+            load: request.body.load,
+          }),
+        });
+
+        const text = await res.text();
+        reply.type("application/json").status(res.status).send(text);
+      } catch (err: any) {
+        reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+      }
+    }
+  );
+
+  fastify.post<{ Params: { id: string } }>("/storage/:id/load", async (request, reply) => {
+    const endpoint = `${config.pirundownUrl}/api/v1/storage/${request.params.id}/load`;
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+      });
+      const text = await res.text();
+      reply.type("application/json").status(res.status).send(text);
+    } catch (err: any) {
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-palveluun: ${err.message}` });
+    }
+  });
+
+  fastify.delete<{ Params: { id: string } }>("/storage/:id", async (request, reply) => {
+    const endpoint = `${config.pirundownUrl}/api/v1/storage/${request.params.id}`;
+    try {
+      const res = await fetch(endpoint, {
+        method: "DELETE",
+      });
+      const text = await res.text();
+      reply.type("application/json").status(res.status).send(text);
+    } catch (err: any) {
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+    }
+  });
+
   // Lectionary preview
   fastify.get<{ Querystring: { date?: string } }>("/lectionary/today", async (request) => {
     const date = request.query.date || new Date().toISOString().slice(0, 10);

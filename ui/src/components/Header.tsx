@@ -8,11 +8,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
+  FolderArchive,
 } from "lucide-react";
 
 interface HeaderProps {
   onLoadTemplate: (templateId: string) => void;
   onPushToPirundown: () => void;
+  onOpenStorage: () => void;
   onExportYaml: () => void;
   onCopyYaml: () => void;
   onOpenLectionary: () => void;
@@ -26,6 +28,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onLoadTemplate,
   onPushToPirundown,
+  onOpenStorage,
   onExportYaml,
   onCopyYaml,
   onOpenLectionary,
@@ -68,6 +71,17 @@ export const Header: React.FC<HeaderProps> = ({
             <option value="empty">Tyhjä laadintapohja</option>
           </select>
         </div>
+
+        {/* Storage / Arkisto button */}
+        <button
+          type="button"
+          onClick={onOpenStorage}
+          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/25 transition-colors"
+          title="Avaa ja selaa pirundownin (:3400) tallennustilaa ja arkistoa"
+        >
+          <FolderArchive className="w-3.5 h-3.5 text-primary" />
+          <span>Tallennustila (:3400)</span>
+        </button>
 
         {/* Lectionary / Kirkkovuosi button */}
         <button

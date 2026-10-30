@@ -81,3 +81,19 @@ test("server: /speakers/resolve enforces role-only when name is missing", async 
   assert.equal(data.hasName, false);
   assert.equal(data.isRoleOnly, true);
 });
+
+test("server: /storage returns 502 gracefully when pirundown is offline", async () => {
+  const config = loadConfig();
+  config.pirundownUrl = "http://localhost:59999"; // Non-existent port
+  const server = await createServer(config);
+
+  const res = await server.inject({
+    method: "GET",
+    url: "/api/v1/storage",
+  });
+
+  assert.equal(res.statusCode, 502);
+  const data = JSON.parse(res.body);
+  assert.equal(data.ok, false);
+  assert.ok(data.error.includes("Ei yhteyttä pirundown-tallennustilaan"));
+});

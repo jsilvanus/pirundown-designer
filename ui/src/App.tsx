@@ -14,6 +14,7 @@ import { SectionList } from "./components/SectionList.js";
 import { YamlEditor } from "./components/YamlEditor.js";
 import { VariableWarnings } from "./components/VariableWarnings.js";
 import { LectionaryModal } from "./components/LectionaryModal.js";
+import { StorageModal } from "./components/StorageModal.js";
 import { computeStrapPreview } from "./utils/speaker.js";
 import { Columns2, Eye, Code2, AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -52,6 +53,7 @@ export const App: React.FC = () => {
   // --- UI Controls ---
   const [viewMode, setViewMode] = useState<"split" | "visual" | "code">("split");
   const [showLectionaryModal, setShowLectionaryModal] = useState(false);
+  const [showStorageModal, setShowStorageModal] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [pushToast, setPushToast] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -305,6 +307,7 @@ export const App: React.FC = () => {
       <Header
         onLoadTemplate={loadTemplate}
         onPushToPirundown={handlePushToPirundown}
+        onOpenStorage={() => setShowStorageModal(true)}
         onExportYaml={handleExportYaml}
         onCopyYaml={handleCopyYaml}
         onOpenLectionary={() => setShowLectionaryModal(true)}
@@ -444,6 +447,25 @@ export const App: React.FC = () => {
           onClose={() => setShowLectionaryModal(false)}
         />
       )}
+
+      {/* Storage & Archive Modal */}
+      {showStorageModal && (
+        <StorageModal
+          currentYaml={yamlText}
+          currentTitle={metadata.title}
+          currentDate={metadata.date}
+          onLoadRundownYaml={(loadedYaml) => {
+            handleYamlChange(loadedYaml);
+            setPushToast({
+              success: true,
+              message: "Ajolista ladattu onnistuneesti suunnittelijaan tallennustilasta!",
+            });
+            setTimeout(() => setPushToast(null), 4000);
+          }}
+          onClose={() => setShowStorageModal(false)}
+        />
+      )}
     </div>
   );
 };
+
