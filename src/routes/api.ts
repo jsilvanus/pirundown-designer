@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { TEMPLATES } from "../core/template-library.js";
-import { yamlToState, stateToYaml, designerStateToRundownV2 } from "../core/yaml-sync.js";
-import { formatSpeakerStrap, resolveSpeakerForCue } from "../core/speaker-registry.js";
+import { yamlToState, stateToYaml } from "../core/yaml-sync.js";
+import { formatSpeakerStrap } from "../core/speaker-registry.js";
 import { getMockLectionaryDay } from "../core/lectionary.js";
 import type { AppConfig } from "../config.js";
 
@@ -14,12 +14,13 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
       status: "ok",
       service: "pirundown-designer",
       port: config.port,
+      preferGateway: config.preferGateway,
       ecosystem: {
         pirundown: config.pirundownUrl,
+        pigateway: config.pigatewayUrl,
         pigraphics: config.pigraphicsUrl,
         piswitch: config.piswitchUrl,
         picam: config.picamUrl,
-        pigateway: config.pigatewayUrl,
       },
     };
   });
@@ -60,14 +61,38 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
     return result;
   });
 
-  // Direct Push to pirundown
+  // Gateway-aware request helper
+  const tryWithGatewayFallback = async (
+    primaryUrl: string,
+    fallbackUrl: string,
+    options: RequestInit
+  ): Promise<{ response: Response; targetUrl: string }> => {
+    if (config.preferGateway) {
+      const res = await fetch(fallbackUrl, options);
+      return { response: res, targetUrl: fallbackUrl };
+    }
+
+    try {
+      const res = await fetch(primaryUrl, options);
+      return { response: res, targetUrl: primaryUrl };
+    } catch (err: any) {
+      // Primary direct connection failed (e.g. running over WAN/internet); try gateway
+      try {
+        const fallbackRes = await fetch(fallbackUrl, options);
+        return { response: fallbackRes, targetUrl: fallbackUrl };
+      } catch {
+        throw err; // Re-throw original error if fallback also fails
+      }
+    }
+  };
+
+  // Direct Push to pirundown (or over gateway)
   fastify.post<{ Body: { yaml: string; targetUrl?: string } }>("/push", async (request, reply) => {
     const { yaml, targetUrl } = request.body;
     if (!yaml) {
       return reply.code(400).send({ success: false, error: "YAML-sisältö puuttuu" });
     }
 
-    // Validate first before pushing
     const validation = yamlToState(yaml);
     if (!validation.valid) {
       return reply.code(400).send({
@@ -77,13 +102,29 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
       });
     }
 
-    const endpoint = targetUrl || `${config.pirundownUrl}/api/v1/rundown/load`;
+    const directEndpoint = `${config.pirundownUrl}/api/v1/rundown/load`;
+    const gatewayEndpoint = `${config.pigatewayUrl}/api/v1/rundown/load`;
+
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ yaml }),
-      });
+      let finalTarget = targetUrl;
+      let response: Response;
+
+      if (targetUrl) {
+        response = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ yaml }),
+        });
+        finalTarget = targetUrl;
+      } else {
+        const result = await tryWithGatewayFallback(directEndpoint, gatewayEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ yaml }),
+        });
+        response = result.response;
+        finalTarget = result.targetUrl;
+      }
 
       const responseText = await response.text();
       let responseJson: any;
@@ -96,46 +137,54 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
       if (!response.ok) {
         return reply.code(response.status).send({
           success: false,
-          error: `pirundown virhe (${response.status}): ${response.statusText}`,
+          error: `Virhe ladattaessa ajolistaa (${response.status}): ${response.statusText}`,
           response: responseJson,
         });
       }
 
       return {
         success: true,
-        endpoint,
-        target: "pirundown",
+        endpoint: finalTarget,
+        viaGateway: finalTarget?.includes(config.pigatewayUrl),
         response: responseJson,
         warnings: validation.warnings,
       };
     } catch (err: any) {
       return reply.code(502).send({
         success: false,
-        error: `Yhteysvirhe pirundown-palveluun (${endpoint}): ${err.message}`,
+        error: `Yhteysvirhe (${directEndpoint} tai ${gatewayEndpoint}): ${err.message}`,
       });
     }
   });
 
-  // Storage proxy endpoints: accessing pirundown (:3400) storage
-  fastify.get("/storage", async (_request, reply) => {
-    const endpoint = `${config.pirundownUrl}/api/v1/storage`;
+  // Storage proxy endpoints: accessing storage directly or over gateway
+  fastify.get("/storage", async (request, reply) => {
+    const directUrl = `${config.pirundownUrl}/api/v1/storage`;
+    const gatewayUrl = `${config.pigatewayUrl}/api/v1/rundown/storage`;
+
     try {
-      const res = await fetch(endpoint);
-      const text = await res.text();
-      reply.type("application/json").status(res.status).send(text);
+      const { response } = await tryWithGatewayFallback(directUrl, gatewayUrl, {
+        headers: { Accept: "application/json" },
+      });
+      const text = await response.text();
+      reply.type("application/json").status(response.status).send(text);
     } catch (err: any) {
-      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä tallennustilaan (suoraan tai gatewayn kautta): ${err.message}` });
     }
   });
 
   fastify.get<{ Params: { id: string } }>("/storage/:id", async (request, reply) => {
-    const endpoint = `${config.pirundownUrl}/api/v1/storage/${request.params.id}`;
+    const directUrl = `${config.pirundownUrl}/api/v1/storage/${request.params.id}`;
+    const gatewayUrl = `${config.pigatewayUrl}/api/v1/rundown/storage/${request.params.id}`;
+
     try {
-      const res = await fetch(endpoint);
-      const text = await res.text();
-      reply.type("application/json").status(res.status).send(text);
+      const { response } = await tryWithGatewayFallback(directUrl, gatewayUrl, {
+        headers: { ...(request.headers.accept ? { Accept: request.headers.accept } : {}) },
+      });
+      const text = await response.text();
+      reply.type("application/json").status(response.status).send(text);
     } catch (err: any) {
-      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä tallennustilaan: ${err.message}` });
     }
   });
 
@@ -155,7 +204,6 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
         return reply.code(400).send({ ok: false, error: "YAML-sisältö puuttuu tallennuspyynnöstä." });
       }
 
-      // Pre-validate locally
       const validation = yamlToState(yamlContent);
       if (!validation.valid) {
         return reply.code(400).send({
@@ -165,9 +213,11 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
         });
       }
 
-      const endpoint = `${config.pirundownUrl}/api/v1/storage`;
+      const directUrl = `${config.pirundownUrl}/api/v1/storage`;
+      const gatewayUrl = `${config.pigatewayUrl}/api/v1/rundown/storage`;
+
       try {
-        const res = await fetch(endpoint, {
+        const { response } = await tryWithGatewayFallback(directUrl, gatewayUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -178,37 +228,41 @@ export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fasti
           }),
         });
 
-        const text = await res.text();
-        reply.type("application/json").status(res.status).send(text);
+        const text = await response.text();
+        reply.type("application/json").status(response.status).send(text);
       } catch (err: any) {
-        reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+        reply.code(502).send({ ok: false, error: `Ei yhteyttä tallennustilaan: ${err.message}` });
       }
     }
   );
 
   fastify.post<{ Params: { id: string } }>("/storage/:id/load", async (request, reply) => {
-    const endpoint = `${config.pirundownUrl}/api/v1/storage/${request.params.id}/load`;
+    const directUrl = `${config.pirundownUrl}/api/v1/storage/${request.params.id}/load`;
+    const gatewayUrl = `${config.pigatewayUrl}/api/v1/rundown/storage/${request.params.id}/load`;
+
     try {
-      const res = await fetch(endpoint, {
+      const { response } = await tryWithGatewayFallback(directUrl, gatewayUrl, {
         method: "POST",
       });
-      const text = await res.text();
-      reply.type("application/json").status(res.status).send(text);
+      const text = await response.text();
+      reply.type("application/json").status(response.status).send(text);
     } catch (err: any) {
-      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-palveluun: ${err.message}` });
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä palveluun: ${err.message}` });
     }
   });
 
   fastify.delete<{ Params: { id: string } }>("/storage/:id", async (request, reply) => {
-    const endpoint = `${config.pirundownUrl}/api/v1/storage/${request.params.id}`;
+    const directUrl = `${config.pirundownUrl}/api/v1/storage/${request.params.id}`;
+    const gatewayUrl = `${config.pigatewayUrl}/api/v1/rundown/storage/${request.params.id}`;
+
     try {
-      const res = await fetch(endpoint, {
+      const { response } = await tryWithGatewayFallback(directUrl, gatewayUrl, {
         method: "DELETE",
       });
-      const text = await res.text();
-      reply.type("application/json").status(res.status).send(text);
+      const text = await response.text();
+      reply.type("application/json").status(response.status).send(text);
     } catch (err: any) {
-      reply.code(502).send({ ok: false, error: `Ei yhteyttä pirundown-tallennustilaan: ${err.message}` });
+      reply.code(502).send({ ok: false, error: `Ei yhteyttä tallennustilaan: ${err.message}` });
     }
   });
 

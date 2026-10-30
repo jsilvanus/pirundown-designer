@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "../src/server.js";
 import { loadConfig } from "../src/config.js";
+import Fastify from "fastify";
 
 test("server: /health returns ecosystem urls and port 3410", async () => {
   const config = loadConfig();
@@ -17,7 +18,7 @@ test("server: /health returns ecosystem urls and port 3410", async () => {
   assert.equal(data.service, "pirundown-designer");
   assert.equal(data.port, 3410);
   assert.equal(data.ecosystem.pirundown, "http://localhost:3400");
-  assert.equal(data.ecosystem.pigraphics, "http://localhost:3107");
+  assert.equal(data.ecosystem.pigateway, "http://localhost:3100");
 });
 
 test("server: /templates returns Messu and Sanajumalanpalvelus", async () => {
@@ -82,18 +83,33 @@ test("server: /speakers/resolve enforces role-only when name is missing", async 
   assert.equal(data.isRoleOnly, true);
 });
 
-test("server: /storage returns 502 gracefully when pirundown is offline", async () => {
-  const config = loadConfig();
-  config.pirundownUrl = "http://localhost:59999"; // Non-existent port
-  const server = await createServer(config);
-
-  const res = await server.inject({
-    method: "GET",
-    url: "/api/v1/storage",
+test("server: /storage works over gateway when preferGateway is true", async () => {
+  // Spin up a mock pigateway server
+  const mockGateway = Fastify();
+  mockGateway.get("/api/v1/rundown/storage", async () => {
+    return { ok: true, count: 1, rundowns: [{ id: "gateway-messu", title: "Gateway Mass" }] };
   });
+  await mockGateway.listen({ port: 0 });
+  const gatewayPort = (mockGateway.server.address() as any).port;
 
-  assert.equal(res.statusCode, 502);
-  const data = JSON.parse(res.body);
-  assert.equal(data.ok, false);
-  assert.ok(data.error.includes("Ei yhteyttä pirundown-tallennustilaan"));
+  try {
+    const config = loadConfig();
+    config.pirundownUrl = "http://localhost:59998"; // Direct pirundown unreachable
+    config.pigatewayUrl = `http://127.0.0.1:${gatewayPort}`;
+    config.preferGateway = true;
+
+    const server = await createServer(config);
+
+    const res = await server.inject({
+      method: "GET",
+      url: "/api/v1/storage",
+    });
+
+    assert.equal(res.statusCode, 200);
+    const data = JSON.parse(res.body);
+    assert.equal(data.ok, true);
+    assert.equal(data.rundowns[0].id, "gateway-messu");
+  } finally {
+    await mockGateway.close();
+  }
 });
