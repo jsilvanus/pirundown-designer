@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom dark scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #16131c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2e2938;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4455;
+}
+
+/* Glass & elevation effects */
+.glass-panel {
+  background: rgba(28, 25, 36, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(204, 195, 215, 0.12);
+}
+
+.mono-editor {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  tab-size: 2;
+}
