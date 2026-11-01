@@ -2,7 +2,7 @@
 
 Visual authoring and cue-sheet designer application for **Rundown v2 YAML**, serving **Riihimäen Keskuskirkko** in the **Pi Ecosystem** (`piecosystem`).
 
-Runs as an HTTP service and visual web editor on port **`3410`**, coordinating with `pirundown` (:3400), `pigraphics` (:3107), `piswitch` (:3106), `piprogram`, `picam` (:3300), and `pigateway` (:3100).
+Runs as an HTTP service and visual web editor on port **`3610`**, coordinating with `pirundown` (:3400), `pigraphics` (:3201), `piswitch` (:3103), `piprogram`, `picam` (:3102), and `pigateway` (:3000).
 
 ---
 
@@ -55,7 +55,7 @@ Runs as an HTTP service and visual web editor on port **`3410`**, coordinating w
 
 ### Prerequisites
 - Node.js >= 22 (recommended Node 24)
-- npm >= 10
+- pnpm 11 (pinned via `packageManager`; `corepack enable` or `npm i -g pnpm@11.23.0`)
 
 ### Installation & Build
 ```bash
@@ -64,28 +64,28 @@ git clone https://github.com/jsilvanus/pirundown-designer.git
 cd pirundown-designer
 
 # Install dependencies and build both server and web UI
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ### Starting the Server
 ```bash
-# Run server on port 3410
-npm start
+# Run server on port 3610
+pnpm start
 
 # Or with CLI
-node bin/pirundown-designer.mjs serve --port 3410
+node bin/pirundown-designer.mjs serve --port 3610
 ```
 
-Open `http://localhost:3410` in your web browser.
+Open `http://localhost:3610` in your web browser.
 
 ### Development Mode
 ```bash
 # Start backend watcher
-npm run dev
+pnpm run dev
 
 # Start frontend Vite dev server (in another terminal)
-npm run dev:ui
+pnpm run dev:ui
 ```
 
 ---
@@ -96,7 +96,7 @@ npm run dev:ui
 
 ```bash
 # Start the web UI server
-pirundown-designer serve --port 3410
+pirundown-designer serve --port 3610
 
 # Validate a Rundown v2 YAML file and check variable interpolations
 pirundown-designer validate sunday-mass.yaml
@@ -115,7 +115,7 @@ pirundown-designer resolve-speaker --role "Saarnaaja" --name "Matti Meikäläine
 ## Running Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 Covers:
@@ -123,7 +123,7 @@ Covers:
 - Variable interpolation checker & undefined variable detection
 - Multi-speaker registry and role-only invariant enforcement
 - YAML roundtrip serialization / deserialization
-- Fastify API endpoints (`/api/v1/health`, `/api/v1/templates`, `/api/v1/validate`, `/api/v1/speakers/resolve`)
+- Fastify API endpoints (`/health`, `/api/v1/templates`, `/api/v1/validate`, `/api/v1/speakers/resolve`)
 
 ---
 
@@ -132,9 +132,9 @@ Covers:
 | Service | Port | Description |
 |---|---|---|
 | `picontrol` | 3000 | Human operator web UI |
-| `pigateway` | 3100 | Central hardware gateway & event bus |
-| `piswitch` | 3106 | ATEM / video switcher service |
-| `pigraphics` | 3107 | Broadcast graphics engine & Fill/Key streaming |
-| `picam` | 3300 | PTZ camera service (VISCA / presets) |
+| `pigateway` | 3000 | Central hardware gateway & event bus |
+| `piswitch` | 3103 | ATEM / video switcher service |
+| `pigraphics` | 3201 | Broadcast graphics engine & Fill/Key streaming |
+| `picam` | 3102 | PTZ camera service (VISCA / presets) |
 | `pirundown` | 3400 | Service rundown execution engine |
-| **`pirundown-designer`** | **3410** | Visual Rundown v2 authoring tool |
+| **`pirundown-designer`** | **3610** | Visual Rundown v2 authoring tool |

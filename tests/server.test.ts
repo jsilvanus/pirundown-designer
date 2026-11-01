@@ -4,21 +4,21 @@ import { createServer } from "../src/server.js";
 import { loadConfig } from "../src/config.js";
 import Fastify from "fastify";
 
-test("server: /health returns ecosystem urls and port 3410", async () => {
+test("server: /health returns ecosystem urls and port 3610", async () => {
   const config = loadConfig();
   const server = await createServer(config);
 
   const res = await server.inject({
     method: "GET",
-    url: "/api/v1/health",
+    url: "/health",
   });
 
   assert.equal(res.statusCode, 200);
   const data = JSON.parse(res.body);
   assert.equal(data.service, "pirundown-designer");
-  assert.equal(data.port, 3410);
+  assert.equal(data.port, 3610);
   assert.equal(data.ecosystem.pirundown, "http://localhost:3400");
-  assert.equal(data.ecosystem.pigateway, "http://localhost:3100");
+  assert.equal(data.ecosystem.pigateway, "http://localhost:3000");
 });
 
 test("server: /templates returns Messu and Sanajumalanpalvelus", async () => {

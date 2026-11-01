@@ -22,7 +22,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       console.log(`\n======================================================`);
       console.log(`   pirundown-designer käynnistetty porttiin :${config.port}`);
       console.log(`   Palvelee Riihimäen Keskuskirkon Rundown v2 -laadintaa`);
-      console.log(`   HTTP API: http://localhost:${config.port}/api/v1/health`);
+      console.log(`   HTTP API: http://localhost:${config.port}/health`);
       console.log(`======================================================\n`);
       break;
     }
@@ -250,7 +250,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 pirundown-designer - Riihimäen Keskuskirkon Rundown v2 -laadintatyökalu
 
 Komennot:
-  serve [--port 3410]                         Käynnistä suunnittelijan HTTP-palvelin
+  serve [--port 3610]                         Käynnistä suunnittelijan HTTP-palvelin
   validate <tiedosto.yaml>                    Validoi YAML Rundown v2 -skeeman ja muuttujat
   template <messu|sanajumalanpalvelus> [--output <tiedosto.yaml>]  Tulosta tai tallenna mallipohja
   resolve-speaker --role <rooli> [--name <nimi>] [--title <titteli>] Testaa puhujalaatan resoluutiota
