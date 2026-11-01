@@ -10,7 +10,7 @@ test("server: /health returns ecosystem urls and port 3410", async () => {
 
   const res = await server.inject({
     method: "GET",
-    url: "/api/v1/health",
+    url: "/health",
   });
 
   assert.equal(res.statusCode, 200);

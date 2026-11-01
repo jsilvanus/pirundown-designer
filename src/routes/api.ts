@@ -8,23 +8,6 @@ import type { AppConfig } from "../config.js";
 export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fastify, opts) => {
   const { config } = opts;
 
-  // Health & Ecosystem Status
-  fastify.get("/health", async () => {
-    return {
-      status: "ok",
-      service: "pirundown-designer",
-      port: config.port,
-      preferGateway: config.preferGateway,
-      ecosystem: {
-        pirundown: config.pirundownUrl,
-        pigateway: config.pigatewayUrl,
-        pigraphics: config.pigraphicsUrl,
-        piswitch: config.piswitchUrl,
-        picam: config.picamUrl,
-      },
-    };
-  });
-
   // Template Library
   fastify.get("/templates", async () => {
     return TEMPLATES.map((t) => ({

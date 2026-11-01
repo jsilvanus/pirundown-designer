@@ -22,7 +22,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       console.log(`\n======================================================`);
       console.log(`   pirundown-designer käynnistetty porttiin :${config.port}`);
       console.log(`   Palvelee Riihimäen Keskuskirkon Rundown v2 -laadintaa`);
-      console.log(`   HTTP API: http://localhost:${config.port}/api/v1/health`);
+      console.log(`   HTTP API: http://localhost:${config.port}/health`);
       console.log(`======================================================\n`);
       break;
     }

@@ -123,7 +123,7 @@ Covers:
 - Variable interpolation checker & undefined variable detection
 - Multi-speaker registry and role-only invariant enforcement
 - YAML roundtrip serialization / deserialization
-- Fastify API endpoints (`/api/v1/health`, `/api/v1/templates`, `/api/v1/validate`, `/api/v1/speakers/resolve`)
+- Fastify API endpoints (`/health`, `/api/v1/templates`, `/api/v1/validate`, `/api/v1/speakers/resolve`)
 
 ---
 

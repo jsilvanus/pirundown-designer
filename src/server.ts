@@ -19,6 +19,23 @@ export async function createServer(config: AppConfig): Promise<FastifyInstance> 
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   });
 
+  // Health & Ecosystem Status (Pi ecosystem standard: GET /health)
+  app.get("/health", async () => {
+    return {
+      status: "ok",
+      service: "pirundown-designer",
+      port: config.port,
+      preferGateway: config.preferGateway,
+      ecosystem: {
+        pirundown: config.pirundownUrl,
+        pigateway: config.pigatewayUrl,
+        pigraphics: config.pigraphicsUrl,
+        piswitch: config.piswitchUrl,
+        picam: config.picamUrl,
+      },
+    };
+  });
+
   // API Routes
   await app.register(apiRoutes, { prefix: "/api/v1", config });
   await app.register(apiRoutes, { prefix: "/api", config });
@@ -59,7 +76,7 @@ export async function createServer(config: AppConfig): Promise<FastifyInstance> 
           <p>Visuaalinen Rundown v2 -laadintatyökalu ja kirkkovuosiautomaation ohjaus.</p>
           <p>Käynnistä kehityskäyttöliittymä ajamalla: <code>pnpm -C ui run dev</code></p>
           <ul>
-            <li><a href="/api/v1/health">/api/v1/health</a></li>
+            <li><a href="/health">/health</a></li>
             <li><a href="/api/v1/templates">/api/v1/templates</a></li>
             <li><a href="/api/v1/lectionary/today">/api/v1/lectionary/today</a></li>
           </ul>
