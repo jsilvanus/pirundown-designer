@@ -41,7 +41,7 @@
   "pi": {
     "service": "pirundown-designer",
     "displayName": "PiRundown Designer",
-    "layer": "+1 Control Plane & Staging",
+    "layer": "Control plane",
     "port": 3610,
     "ports": {
       "uiDev": 5174
