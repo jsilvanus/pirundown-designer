@@ -1,6 +1,7 @@
 {
   "name": "pirundown-designer",
   "version": "0.1.0",
+  "packageManager": "pnpm@11.23.0",
   "description": "Visual authoring and cue-sheet designer application for Rundown v2 YAML serving Riihimäen Keskuskirkko",
   "private": true,
   "type": "module",
@@ -12,10 +13,10 @@
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "dev:ui": "npm --prefix ui run dev",
+    "dev:ui": "pnpm -C ui run dev",
     "build:server": "tsc -p tsconfig.json",
-    "build:ui": "npm --prefix ui run build",
-    "build": "npm run build:server && npm run build:ui",
+    "build:ui": "pnpm -C ui run build",
+    "build": "pnpm run build:server && pnpm run build:ui",
     "start": "node dist/main.js",
     "test": "tsx --test tests/**/*.test.ts",
     "cli": "tsx src/cli.ts"
@@ -36,5 +37,16 @@
     "dist",
     "bin",
     "ui/dist"
-  ]
+  ],
+  "pi": {
+    "service": "pirundown-designer",
+    "displayName": "PiRundown Designer",
+    "layer": "+1 Control Plane & Staging",
+    "port": 3410,
+    "ports": {
+      "uiDev": 5174
+    },
+    "healthEndpoint": "/api/v1/health",
+    "envPortVar": "PORT"
+  }
 }

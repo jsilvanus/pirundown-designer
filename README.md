@@ -55,7 +55,7 @@ Runs as an HTTP service and visual web editor on port **`3410`**, coordinating w
 
 ### Prerequisites
 - Node.js >= 22 (recommended Node 24)
-- npm >= 10
+- pnpm 11 (pinned via `packageManager`; `corepack enable` or `npm i -g pnpm@11.23.0`)
 
 ### Installation & Build
 ```bash
@@ -64,14 +64,14 @@ git clone https://github.com/jsilvanus/pirundown-designer.git
 cd pirundown-designer
 
 # Install dependencies and build both server and web UI
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ### Starting the Server
 ```bash
 # Run server on port 3410
-npm start
+pnpm start
 
 # Or with CLI
 node bin/pirundown-designer.mjs serve --port 3410
@@ -82,10 +82,10 @@ Open `http://localhost:3410` in your web browser.
 ### Development Mode
 ```bash
 # Start backend watcher
-npm run dev
+pnpm run dev
 
 # Start frontend Vite dev server (in another terminal)
-npm run dev:ui
+pnpm run dev:ui
 ```
 
 ---
@@ -115,7 +115,7 @@ pirundown-designer resolve-speaker --role "Saarnaaja" --name "Matti Meikäläine
 ## Running Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 Covers:

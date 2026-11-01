@@ -57,7 +57,7 @@ export async function createServer(config: AppConfig): Promise<FastifyInstance> 
         <body>
           <h1>pirundown-designer :${config.port}</h1>
           <p>Visuaalinen Rundown v2 -laadintatyökalu ja kirkkovuosiautomaation ohjaus.</p>
-          <p>Käynnistä kehityskäyttöliittymä ajamalla: <code>npm --prefix ui run dev</code></p>
+          <p>Käynnistä kehityskäyttöliittymä ajamalla: <code>pnpm -C ui run dev</code></p>
           <ul>
             <li><a href="/api/v1/health">/api/v1/health</a></li>
             <li><a href="/api/v1/templates">/api/v1/templates</a></li>
