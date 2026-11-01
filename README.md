@@ -2,7 +2,7 @@
 
 Visual authoring and cue-sheet designer application for **Rundown v2 YAML**, serving **Riihimäen Keskuskirkko** in the **Pi Ecosystem** (`piecosystem`).
 
-Runs as an HTTP service and visual web editor on port **`3410`**, coordinating with `pirundown` (:3400), `pigraphics` (:3107), `piswitch` (:3106), `piprogram`, `picam` (:3300), and `pigateway` (:3100).
+Runs as an HTTP service and visual web editor on port **`3610`**, coordinating with `pirundown` (:3400), `pigraphics` (:3201), `piswitch` (:3103), `piprogram`, `picam` (:3102), and `pigateway` (:3000).
 
 ---
 
@@ -70,14 +70,14 @@ pnpm run build
 
 ### Starting the Server
 ```bash
-# Run server on port 3410
+# Run server on port 3610
 pnpm start
 
 # Or with CLI
-node bin/pirundown-designer.mjs serve --port 3410
+node bin/pirundown-designer.mjs serve --port 3610
 ```
 
-Open `http://localhost:3410` in your web browser.
+Open `http://localhost:3610` in your web browser.
 
 ### Development Mode
 ```bash
@@ -96,7 +96,7 @@ pnpm run dev:ui
 
 ```bash
 # Start the web UI server
-pirundown-designer serve --port 3410
+pirundown-designer serve --port 3610
 
 # Validate a Rundown v2 YAML file and check variable interpolations
 pirundown-designer validate sunday-mass.yaml
@@ -132,9 +132,9 @@ Covers:
 | Service | Port | Description |
 |---|---|---|
 | `picontrol` | 3000 | Human operator web UI |
-| `pigateway` | 3100 | Central hardware gateway & event bus |
-| `piswitch` | 3106 | ATEM / video switcher service |
-| `pigraphics` | 3107 | Broadcast graphics engine & Fill/Key streaming |
-| `picam` | 3300 | PTZ camera service (VISCA / presets) |
+| `pigateway` | 3000 | Central hardware gateway & event bus |
+| `piswitch` | 3103 | ATEM / video switcher service |
+| `pigraphics` | 3201 | Broadcast graphics engine & Fill/Key streaming |
+| `picam` | 3102 | PTZ camera service (VISCA / presets) |
 | `pirundown` | 3400 | Service rundown execution engine |
-| **`pirundown-designer`** | **3410** | Visual Rundown v2 authoring tool |
+| **`pirundown-designer`** | **3610** | Visual Rundown v2 authoring tool |

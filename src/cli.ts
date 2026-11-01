@@ -250,7 +250,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 pirundown-designer - Riihimäen Keskuskirkon Rundown v2 -laadintatyökalu
 
 Komennot:
-  serve [--port 3410]                         Käynnistä suunnittelijan HTTP-palvelin
+  serve [--port 3610]                         Käynnistä suunnittelijan HTTP-palvelin
   validate <tiedosto.yaml>                    Validoi YAML Rundown v2 -skeeman ja muuttujat
   template <messu|sanajumalanpalvelus> [--output <tiedosto.yaml>]  Tulosta tai tallenna mallipohja
   resolve-speaker --role <rooli> [--name <nimi>] [--title <titteli>] Testaa puhujalaatan resoluutiota

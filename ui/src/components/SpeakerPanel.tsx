@@ -154,7 +154,7 @@ export const SpeakerPanel: React.FC<SpeakerPanelProps> = ({
                   </div>
                 </div>
                 <span className="ml-auto text-[9px] font-mono text-outline uppercase px-1 py-0.2 rounded bg-surface-container border border-outline-variant/20 shrink-0">
-                  pigraphics :3107
+                  pigraphics :3201
                 </span>
               </div>
             </div>
