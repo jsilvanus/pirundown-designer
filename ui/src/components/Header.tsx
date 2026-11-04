@@ -9,11 +9,13 @@ import {
   AlertTriangle,
   RefreshCw,
   FolderArchive,
+  Church,
 } from "lucide-react";
 
 interface HeaderProps {
   onLoadTemplate: (templateId: string) => void;
   onPushToPirundown: () => void;
+  onOpenServiceInfo?: () => void;
   onOpenStorage: () => void;
   onExportYaml: () => void;
   onCopyYaml: () => void;
@@ -27,6 +29,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onLoadTemplate,
+  onOpenServiceInfo,
   onPushToPirundown,
   onOpenStorage,
   onExportYaml,
@@ -71,6 +74,19 @@ export const Header: React.FC<HeaderProps> = ({
             <option value="empty">Tyhjä laadintapohja</option>
           </select>
         </div>
+
+        {/* Service Info & People modal opener */}
+        {onOpenServiceInfo && (
+          <button
+            type="button"
+            onClick={onOpenServiceInfo}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/25 transition-colors font-medium shadow-xs"
+            title="Avaa palveluksen perustiedot, virret ja henkilörekisteri"
+          >
+            <Church className="w-3.5 h-3.5 text-primary" />
+            <span>Perustiedot & henkilöt</span>
+          </button>
+        )}
 
         {/* Storage / Arkisto button */}
         <button

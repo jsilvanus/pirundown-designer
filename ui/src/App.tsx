@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type {
   ServiceMetadata,
   HymnSelection,
@@ -8,15 +8,25 @@ import type {
   LectionaryData,
 } from "./types/index.js";
 import { Header } from "./components/Header.js";
-import { MetadataPanel } from "./components/MetadataPanel.js";
-import { SpeakerPanel } from "./components/SpeakerPanel.js";
+import { ServiceInfoModal } from "./components/ServiceInfoModal.js";
 import { SectionList } from "./components/SectionList.js";
 import { YamlEditor } from "./components/YamlEditor.js";
 import { VariableWarnings } from "./components/VariableWarnings.js";
 import { LectionaryModal } from "./components/LectionaryModal.js";
 import { StorageModal } from "./components/StorageModal.js";
-import { computeStrapPreview } from "./utils/speaker.js";
-import { Columns2, Eye, Code2, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  Columns2,
+  Eye,
+  Code2,
+  AlertCircle,
+  CheckCircle2,
+  Church,
+  Sliders,
+  GripVertical,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 export const App: React.FC = () => {
   // --- Visual State ---
@@ -50,14 +60,22 @@ export const App: React.FC = () => {
     warnings: [],
   });
 
-  // --- UI Controls ---
+  // --- UI View Modes & Modals ---
   const [viewMode, setViewMode] = useState<"split" | "visual" | "code">("split");
+  const [showServiceInfoModal, setShowServiceInfoModal] = useState(false);
   const [showLectionaryModal, setShowLectionaryModal] = useState(false);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [pushToast, setPushToast] = useState<{ success: boolean; message: string } | null>(null);
 
+  // --- Resizing & Narrowing State ---
+  const [splitRatio, setSplitRatio] = useState<number>(50); // 50% left, 50% right
+  const [pageWidthPercent, setPageWidthPercent] = useState<number>(100); // 50% to 100%
+
   const isUpdatingFromCode = useRef(false);
+  const isDraggingSplit = useRef(false);
+  const isDraggingPageWidth = useRef<"left" | "right" | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Load default template on mount
   useEffect(() => {
@@ -301,11 +319,74 @@ export const App: React.FC = () => {
     setSpeakers((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // --- Mouse Drag Resizing Logic ---
+  const handleMouseDownSplit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplit.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  const handleMouseDownPageWidth = (side: "left" | "right") => (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingPageWidth.current = side;
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // Split view divider drag
+      if (isDraggingSplit.current && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const newPercent = (offsetX / rect.width) * 100;
+        const clamped = Math.max(25, Math.min(75, newPercent));
+        setSplitRatio(Math.round(clamped));
+      }
+
+      // Page width narrowing drag
+      if (isDraggingPageWidth.current) {
+        const screenWidth = window.innerWidth;
+        const side = isDraggingPageWidth.current;
+        let deltaFromCenter = 0;
+        const center = screenWidth / 2;
+
+        if (side === "right") {
+          deltaFromCenter = Math.abs(e.clientX - center);
+        } else {
+          deltaFromCenter = Math.abs(center - e.clientX);
+        }
+
+        const calculatedPercent = (deltaFromCenter * 2 / screenWidth) * 100;
+        const clamped = Math.max(45, Math.min(100, calculatedPercent));
+        setPageWidthPercent(Math.round(clamped));
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingSplit.current || isDraggingPageWidth.current) {
+        isDraggingSplit.current = false;
+        isDraggingPageWidth.current = null;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-on-surface">
       {/* App Header */}
       <Header
         onLoadTemplate={loadTemplate}
+        onOpenServiceInfo={() => setShowServiceInfoModal(true)}
         onPushToPirundown={handlePushToPirundown}
         onOpenStorage={() => setShowStorageModal(true)}
         onExportYaml={handleExportYaml}
@@ -318,8 +399,9 @@ export const App: React.FC = () => {
         warningCount={validation.warnings.length}
       />
 
-      {/* View Switcher Sub-bar */}
+      {/* View Switcher & Page Width Sub-bar */}
       <div className="h-9 px-4 bg-surface-container-low border-b border-outline-variant/15 flex items-center justify-between text-xs shrink-0 select-none">
+        {/* Left: View Mode Switches */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -359,11 +441,50 @@ export const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Live Status indicator */}
-        <div className="flex items-center gap-3 text-[11px] text-outline font-mono">
-          <span>Kohtia: {rundown.length}</span>
-          <span>•</span>
-          <span>Puhujia: {speakers.length} ({speakers.filter((s) => s.isRoleOnly).length} vain rooli)</span>
+        {/* Right: Page Width Controls & Info */}
+        <div className="flex items-center gap-3">
+          {/* Page Width Indicator & Presets */}
+          <div className="flex items-center gap-1.5 bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/15 text-[11px] text-outline font-mono">
+            <span>Leveys: {pageWidthPercent}%</span>
+            <button
+              type="button"
+              onClick={() => setPageWidthPercent(100)}
+              className={`p-0.5 rounded hover:text-on-surface transition-colors ${
+                pageWidthPercent === 100 ? "text-primary" : "text-outline"
+              }`}
+              title="Palauta täyteen leveyteen (100%)"
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+            <span className="text-outline/30">|</span>
+            <button
+              type="button"
+              onClick={() => setPageWidthPercent(80)}
+              className={`px-1 rounded hover:text-on-surface ${pageWidthPercent === 80 ? "text-primary font-bold" : ""}`}
+              title="80% leveys"
+            >
+              80%
+            </button>
+            <button
+              type="button"
+              onClick={() => setPageWidthPercent(65)}
+              className={`px-1 rounded hover:text-on-surface ${pageWidthPercent === 65 ? "text-primary font-bold" : ""}`}
+              title="65% leveys"
+            >
+              65%
+            </button>
+          </div>
+
+          <div className="h-3 w-px bg-outline-variant/20" />
+
+          {/* Live Status indicator */}
+          <div className="flex items-center gap-2 text-[11px] text-outline font-mono">
+            <span>Kohtia: {rundown.length}</span>
+            <span>•</span>
+            <span>Puhujia: {speakers.length}</span>
+            <span>•</span>
+            <span>Virsiä: {Object.keys(hymns || {}).length}</span>
+          </div>
         </div>
       </div>
 
@@ -393,51 +514,140 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Main Content Workspace */}
-      <div className="flex-1 overflow-hidden flex">
-        {/* Left Side: Visual Designer */}
-        {(viewMode === "split" || viewMode === "visual") && (
-          <div
-            className={`flex-1 overflow-y-auto p-4 flex flex-col gap-4 border-r border-outline-variant/15 ${
-              viewMode === "split" ? "w-1/2 max-w-[55%]" : "w-full"
-            }`}
-          >
-            {/* Variable Interpolation Warnings */}
-            <VariableWarnings warnings={validation.warnings} />
-
-            {/* Service Metadata & Hymn Selection */}
-            <MetadataPanel
-              metadata={metadata}
-              hymns={hymns}
-              onChangeMetadata={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
-              onChangeHymns={(h) => setHymns((prev) => ({ ...prev, ...h }))}
-            />
-
-            {/* Multi-Speaker / Priest Registry */}
-            <SpeakerPanel
-              speakers={speakers}
-              churchName={metadata.church}
-              onAddSpeaker={handleAddSpeaker}
-              onUpdateSpeaker={handleUpdateSpeaker}
-              onDeleteSpeaker={handleDeleteSpeaker}
-            />
-
-            {/* Visual Section & Cue Items */}
-            <SectionList rundown={rundown} onUpdateRundown={setRundown} />
+      {/* Main Outer Workspace Wrapper with Page Narrowing Handles */}
+      <div className="flex-1 overflow-hidden flex justify-center bg-surface-container-lowest relative select-none">
+        {/* Left Page Narrowing Handle */}
+        <div
+          onMouseDown={handleMouseDownPageWidth("left")}
+          className="w-3.5 hover:w-4 bg-transparent hover:bg-primary/20 cursor-ew-resize flex items-center justify-center transition-all group shrink-0 select-none z-20 border-r border-transparent hover:border-primary/40"
+          title="Kavenna tai levennä sivua vetämällä (Vasen kahva)"
+        >
+          <div className="w-1 h-12 rounded-full bg-outline-variant/30 group-hover:bg-primary transition-colors flex items-center justify-center">
+            <GripVertical className="w-3 h-3 text-outline/60 group-hover:text-white" />
           </div>
-        )}
+        </div>
 
-        {/* Right Side: Synchronized YAML Editor */}
-        {(viewMode === "split" || viewMode === "code") && (
-          <div className={`p-4 flex-1 h-full overflow-hidden ${viewMode === "split" ? "w-1/2" : "w-full"}`}>
-            <YamlEditor
-              yamlText={yamlText}
-              errors={validation.errors}
-              onChangeYaml={handleYamlChange}
-            />
+        {/* Centered Adjustable Width Content Canvas */}
+        <div
+          ref={containerRef}
+          style={{ width: `${pageWidthPercent}%` }}
+          className="h-full flex overflow-hidden border-x border-outline-variant/15 bg-background shadow-lg transition-[width] duration-75"
+        >
+          {/* Left Side: Visual Designer */}
+          {(viewMode === "split" || viewMode === "visual") && (
+            <div
+              style={{
+                width: viewMode === "split" ? `${splitRatio}%` : "100%",
+              }}
+              className="h-full overflow-y-auto p-4 flex flex-col gap-4"
+            >
+              {/* Variable Interpolation Warnings */}
+              <VariableWarnings warnings={validation.warnings} />
+
+              {/* Service Info & People Quick Banner / Modal Opener */}
+              <div
+                onClick={() => setShowServiceInfoModal(true)}
+                className="p-3.5 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 cursor-pointer flex items-center justify-between gap-3 transition-all group shadow-xs select-none"
+                title="Avaa palveluksen perustiedot, virret ja henkilöt"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                    <Church className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-xs text-on-surface">
+                        {metadata.title || "Messu"}
+                      </span>
+                      {metadata.service && (
+                        <span className="text-[11px] text-primary font-medium px-2 py-0.5 rounded-full bg-primary/10">
+                          {metadata.service}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-outline font-mono">
+                        {metadata.date}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-outline truncate flex items-center gap-2 mt-0.5">
+                      <span>{metadata.church}</span>
+                      <span>•</span>
+                      <span>{speakers.length} osallistujaa</span>
+                      <span>•</span>
+                      <span>{Object.keys(hymns || {}).length} virttä</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary bg-primary/15 group-hover:bg-primary/25 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Muokkaa tietoja & henkilöitä</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Hierarchical Rundown & Cue Items */}
+              <SectionList rundown={rundown} onUpdateRundown={setRundown} />
+            </div>
+          )}
+
+          {/* Split Resizer Divider Handle */}
+          {viewMode === "split" && (
+            <div
+              onMouseDown={handleMouseDownSplit}
+              className="w-2.5 hover:w-3 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
+              title="Säädä jaetun näkymän leveyttä vetämällä"
+            >
+              <div className="w-1 h-10 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
+            </div>
+          )}
+
+          {/* Right Side: Synchronized YAML Editor with Line Numbers */}
+          {(viewMode === "split" || viewMode === "code") && (
+            <div
+              style={{
+                width: viewMode === "split" ? `${100 - splitRatio}%` : "100%",
+              }}
+              className="p-4 h-full overflow-hidden"
+            >
+              <YamlEditor
+                yamlText={yamlText}
+                errors={validation.errors}
+                onChangeYaml={handleYamlChange}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right Page Narrowing Handle */}
+        <div
+          onMouseDown={handleMouseDownPageWidth("right")}
+          className="w-3.5 hover:w-4 bg-transparent hover:bg-primary/20 cursor-ew-resize flex items-center justify-center transition-all group shrink-0 select-none z-20 border-l border-transparent hover:border-primary/40"
+          title="Kavenna tai levennä sivua vetämällä (Oikea kahva)"
+        >
+          <div className="w-1 h-12 rounded-full bg-outline-variant/30 group-hover:bg-primary transition-colors flex items-center justify-center">
+            <GripVertical className="w-3 h-3 text-outline/60 group-hover:text-white" />
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Service Info, Hymns & Personnel Modal */}
+      {showServiceInfoModal && (
+        <ServiceInfoModal
+          metadata={metadata}
+          hymns={hymns}
+          speakers={speakers}
+          onChangeMetadata={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
+          onChangeHymns={(h) => setHymns(h)}
+          onAddSpeaker={handleAddSpeaker}
+          onUpdateSpeaker={handleUpdateSpeaker}
+          onDeleteSpeaker={handleDeleteSpeaker}
+          onClose={() => setShowServiceInfoModal(false)}
+        />
+      )}
 
       {/* Lectionary Kirkkovuosi Modal */}
       {showLectionaryModal && (
@@ -468,4 +678,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-

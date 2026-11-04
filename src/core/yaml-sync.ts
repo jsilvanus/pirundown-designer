@@ -28,12 +28,15 @@ export function designerStateToRundownV2(state: DesignerState): RundownV2 {
   // 1. Export speaker variables respecting the role-only invariant
   const speakerVars = exportSpeakersToVariables(state.speakers, state.metadata.church);
 
-  // 2. Export hymns
+  // 2. Export hymns (supports arbitrary hymn keys)
   const hymnVars: Record<string, string> = {};
-  if (state.hymns.hymn_1) hymnVars.hymn_1 = state.hymns.hymn_1;
-  if (state.hymns.hymn_2) hymnVars.hymn_2 = state.hymns.hymn_2;
-  if (state.hymns.hymn_3) hymnVars.hymn_3 = state.hymns.hymn_3;
-  if (state.hymns.communion_hymns) hymnVars.communion_hymns = state.hymns.communion_hymns;
+  if (state.hymns) {
+    for (const [k, v] of Object.entries(state.hymns)) {
+      if (typeof v === "string" && v.trim().length > 0) {
+        hymnVars[k] = v.trim();
+      }
+    }
+  }
 
   // 3. Merge preflight variables
   const preflightVariables = {
@@ -117,17 +120,14 @@ export function rundownV2ToDesignerState(doc: RundownV2): DesignerState {
     speakers.push(createSpeakerParticipant("Tekstinlukija", undefined, undefined, "spk_reader"));
   }
 
-  // Extract hymns
-  const hymns: HymnSelection = {
-    hymn_1: preflightVars.hymn_1 ? String(preflightVars.hymn_1) : undefined,
-    hymn_2: preflightVars.hymn_2 ? String(preflightVars.hymn_2) : undefined,
-    hymn_3: preflightVars.hymn_3 ? String(preflightVars.hymn_3) : undefined,
-    communion_hymns: preflightVars.communion_hymns ? String(preflightVars.communion_hymns) : undefined,
-  };
-  processedKeys.add("hymn_1");
-  processedKeys.add("hymn_2");
-  processedKeys.add("hymn_3");
-  processedKeys.add("communion_hymns");
+  // Extract hymns (supports dynamic hymn keys)
+  const hymns: HymnSelection = {};
+  for (const [k, v] of Object.entries(preflightVars)) {
+    if (k.startsWith("hymn") || k === "communion_hymns" || k.endsWith("_hymn") || k.startsWith("virsi")) {
+      hymns[k] = String(v);
+      processedKeys.add(k);
+    }
+  }
 
   // Gather custom leftover variables
   const customVariables: Record<string, any> = {};
@@ -154,14 +154,52 @@ export function rundownV2ToDesignerState(doc: RundownV2): DesignerState {
 }
 
 /**
- * Converts DesignerState to formatted YAML.
+ * Converts DesignerState to formatted YAML with hierarchical section and item numbering comments.
  */
 export function stateToYaml(state: DesignerState): string {
   const doc = designerStateToRundownV2(state);
-  return stringify(doc, {
+  const rawYaml = stringify(doc, {
     indent: 2,
     lineWidth: 120,
   });
+
+  if (!state.rundown || state.rundown.length === 0) {
+    return rawYaml;
+  }
+
+  const lines = rawYaml.split("\n");
+  const annotatedLines: string[] = [];
+  let itemIdx = 0;
+  let currentSection = "";
+  let sectionNumber = 0;
+  let itemNumberInSection = 0;
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("- id:") || (trimmed.startsWith("-") && line.startsWith("  -"))) {
+      const currentItem = state.rundown[itemIdx++];
+      if (currentItem) {
+        const sec = (currentItem.section || "Johdanto").trim();
+        if (sec.toLowerCase() !== currentSection.toLowerCase()) {
+          currentSection = sec;
+          sectionNumber++;
+          itemNumberInSection = 0;
+          annotatedLines.push(`  # ----------------------------------------`);
+          annotatedLines.push(`  # ${sectionNumber}. ${sec}`);
+          annotatedLines.push(`  # ----------------------------------------`);
+        }
+        itemNumberInSection++;
+        const hierBadge = `${sectionNumber}.${itemNumberInSection}`;
+        if (!line.includes("#")) {
+          const titleHint = currentItem.title ? ` ${currentItem.title}` : "";
+          line = `${line} # ${hierBadge}${titleHint}`;
+        }
+      }
+    }
+    annotatedLines.push(line);
+  }
+
+  return annotatedLines.join("\n");
 }
 
 /**

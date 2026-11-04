@@ -40,11 +40,30 @@ export interface RundownCue {
   conditions?: RundownCue[];
 }
 
+export interface AiGraphicsOptions {
+  lowerThird?: string[];
+  overlay?: string[];
+  templates?: string[];
+  [key: string]: any;
+}
+
+export interface AiItemInstructions {
+  targetZone?: string;
+  primarySubject?: string;
+  preferredCameras?: Array<number | string>;
+  framing?: string;
+  pacing?: string;
+  instructions?: string;
+  graphicsOptions?: AiGraphicsOptions;
+  [key: string]: any;
+}
+
 export interface RundownItemData {
   id: string;
   title: string;
   section?: string;
   notes?: string;
+  ai?: AiItemInstructions;
   cue?: RundownCue;
   actions: any[];
 }

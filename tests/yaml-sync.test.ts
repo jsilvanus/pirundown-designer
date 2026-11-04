@@ -59,3 +59,37 @@ test("templates: all built-in templates conform to RundownV2 schema", () => {
   const sanaValidation = RundownV2Schema.safeParse(TEMPLATE_SANAJUMALANPALVELUS);
   assert.equal(sanaValidation.success, true);
 });
+
+test("schema: validates Rundown item ai.graphicsOptions with lowerThird and overlay whitelists", () => {
+  const yamlString = `
+version: 2
+title: Saarnajumalanpalvelus
+rundown:
+  - id: saarna
+    title: Saarna
+    section: Sana
+    ai:
+      targetZone: pulpit
+      graphicsOptions:
+        lowerThird:
+          - lower-third-speaker
+        overlay:
+          - scripture-reading
+    cue:
+      type: manual
+    actions:
+      - cam:
+          id: 1
+          preset: pulpit
+`;
+
+  const parsed = yamlToState(yamlString);
+  assert.equal(parsed.valid, true);
+  assert.ok(parsed.state);
+  assert.equal(parsed.state.rundown[0].id, "saarna");
+  const ai = (parsed.state.rundown[0] as any).ai;
+  assert.ok(ai);
+  assert.equal(ai.targetZone, "pulpit");
+  assert.deepEqual(ai.graphicsOptions.lowerThird, ["lower-third-speaker"]);
+  assert.deepEqual(ai.graphicsOptions.overlay, ["scripture-reading"]);
+});
