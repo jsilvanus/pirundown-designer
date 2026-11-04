@@ -3,10 +3,96 @@ import { TEMPLATES } from "../core/template-library.js";
 import { yamlToState, stateToYaml } from "../core/yaml-sync.js";
 import { formatSpeakerStrap } from "../core/speaker-registry.js";
 import { getMockLectionaryDay } from "../core/lectionary.js";
+import { DesignerSessionStore } from "../core/designer-session.js";
+import { DesignerAgentHandler } from "../core/designer-agent.js";
+import type { RundownItem } from "../schema/rundown-v2.js";
 import type { AppConfig } from "../config.js";
 
-export const apiRoutes: FastifyPluginAsync<{ config: AppConfig }> = async (fastify, opts) => {
+// Export session store instance so server or tests can access it directly if needed
+export const globalSessionStore = new DesignerSessionStore("messu");
+
+export const apiRoutes: FastifyPluginAsync<{ config: AppConfig; sessionStore?: DesignerSessionStore }> = async (fastify, opts) => {
   const { config } = opts;
+  const sessionStore = opts.sessionStore || globalSessionStore;
+  const agentHandler = new DesignerAgentHandler(sessionStore, config);
+
+  // Active Session & Agent State
+  fastify.get("/designer/state", async () => {
+    return sessionStore.getSnapshot();
+  });
+
+  fastify.post<{ Body: { yaml?: string; state?: any } }>("/designer/state", async (request, reply) => {
+    if (request.body.yaml) {
+      const res = sessionStore.applyYaml(request.body.yaml);
+      if (!res.valid) {
+        return reply.code(400).send({ ok: false, errors: res.errors, warnings: res.warnings });
+      }
+      return { ok: true, snapshot: sessionStore.getSnapshot() };
+    }
+    if (request.body.state) {
+      sessionStore.setState(request.body.state);
+      return { ok: true, snapshot: sessionStore.getSnapshot() };
+    }
+    return reply.code(400).send({ ok: false, error: "Pyynnöstä puuttuu sekä 'yaml' että 'state'" });
+  });
+
+  fastify.post<{ Body: { item: any; section?: string; index?: number } }>("/designer/items", async (request, reply) => {
+    if (!request.body.item) {
+      return reply.code(400).send({ ok: false, error: "Kohde (item) puuttuu" });
+    }
+    const item = sessionStore.addItem(request.body.item, request.body.section, request.body.index);
+    return { ok: true, item, snapshot: sessionStore.getSnapshot() };
+  });
+
+  fastify.put<{ Params: { id: string }; Body: any }>("/designer/items/:id", async (request, reply) => {
+    const updated = sessionStore.updateItem(request.params.id, request.body as Partial<RundownItem>);
+    if (!updated) {
+      return reply.code(404).send({ ok: false, error: `Kohtaa ei löydy id:llä ${request.params.id}` });
+    }
+    return { ok: true, item: updated, snapshot: sessionStore.getSnapshot() };
+  });
+
+  fastify.delete<{ Params: { id: string } }>("/designer/items/:id", async (request, reply) => {
+    const success = sessionStore.deleteItem(request.params.id);
+    if (!success) {
+      return reply.code(404).send({ ok: false, error: `Kohtaa ei löydy id:llä ${request.params.id}` });
+    }
+    return { ok: true, snapshot: sessionStore.getSnapshot() };
+  });
+
+  fastify.patch<{ Body: { metadata?: any; hymns?: any; speakers?: any } }>("/designer/metadata", async (request) => {
+    if (request.body.metadata) {
+      sessionStore.setMetadata(request.body.metadata);
+    }
+    if (request.body.hymns) {
+      sessionStore.setHymns(request.body.hymns);
+    }
+    if (request.body.speakers) {
+      sessionStore.setSpeakers(request.body.speakers);
+    }
+    return { ok: true, snapshot: sessionStore.getSnapshot() };
+  });
+
+  fastify.post<{ Body: { templateId: string } }>("/designer/template", async (request, reply) => {
+    const success = sessionStore.loadTemplate(request.body.templateId);
+    if (!success) {
+      return reply.code(404).send({ ok: false, error: `Mallipohjaa ei löydy: ${request.body.templateId}` });
+    }
+    return { ok: true, snapshot: sessionStore.getSnapshot() };
+  });
+
+  fastify.post<{ Body: { message: string } }>("/designer/agent/chat", async (request, reply) => {
+    if (!request.body.message || typeof request.body.message !== "string") {
+      return reply.code(400).send({ ok: false, error: "Viesti (message) puuttuu" });
+    }
+    const result = await agentHandler.handleMessage(request.body.message);
+    return {
+      ok: true,
+      message: result.message,
+      actionsExecuted: result.actionsExecuted,
+      snapshot: sessionStore.getSnapshot(),
+    };
+  });
 
   // Template Library
   fastify.get("/templates", async () => {

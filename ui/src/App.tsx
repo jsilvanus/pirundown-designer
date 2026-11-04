@@ -6,16 +6,19 @@ import type {
   RundownItemData,
   ValidationResponse,
   LectionaryData,
+  AgentChatMessage,
 } from "./types/index.js";
 import { Header } from "./components/Header.js";
 import { ServiceInfoModal } from "./components/ServiceInfoModal.js";
 import { SectionList } from "./components/SectionList.js";
 import { YamlEditor } from "./components/YamlEditor.js";
+import { AgentChatPanel } from "./components/AgentChatPanel.js";
 import { VariableWarnings } from "./components/VariableWarnings.js";
 import { LectionaryModal } from "./components/LectionaryModal.js";
 import { StorageModal } from "./components/StorageModal.js";
 import {
   Columns2,
+  Columns3,
   Eye,
   Code2,
   AlertCircle,
@@ -24,8 +27,7 @@ import {
   Sliders,
   GripVertical,
   RotateCcw,
-  Maximize2,
-  Minimize2,
+  Sparkles,
 } from "lucide-react";
 
 export const App: React.FC = () => {
@@ -60,8 +62,12 @@ export const App: React.FC = () => {
     warnings: [],
   });
 
+  // --- Agent Chat State ---
+  const [chatHistory, setChatHistory] = useState<AgentChatMessage[]>([]);
+  const [isThinking, setIsThinking] = useState(false);
+
   // --- UI View Modes & Modals ---
-  const [viewMode, setViewMode] = useState<"split" | "visual" | "code">("split");
+  const [viewMode, setViewMode] = useState<"3col" | "split" | "visual" | "code" | "agent">("3col");
   const [showServiceInfoModal, setShowServiceInfoModal] = useState(false);
   const [showLectionaryModal, setShowLectionaryModal] = useState(false);
   const [showStorageModal, setShowStorageModal] = useState(false);
@@ -69,20 +75,50 @@ export const App: React.FC = () => {
   const [pushToast, setPushToast] = useState<{ success: boolean; message: string } | null>(null);
 
   // --- Resizing & Narrowing State ---
-  const [splitRatio, setSplitRatio] = useState<number>(50); // 50% left, 50% right
+  const [splitRatio, setSplitRatio] = useState<number>(50); // For 2-column split (Left %)
+  const [colRatio1, setColRatio1] = useState<number>(38); // For 3-column (Col 1 %)
+  const [colRatio2, setColRatio2] = useState<number>(34); // For 3-column (Col 2 %) - Col 3 is (100 - colRatio1 - colRatio2)
   const [pageWidthPercent, setPageWidthPercent] = useState<number>(100); // 50% to 100%
 
   const isUpdatingFromCode = useRef(false);
-  const isDraggingSplit = useRef(false);
+  const activeDragSplit = useRef<"split2col" | "split3col_1" | "split3col_2" | null>(null);
   const isDraggingPageWidth = useRef<"left" | "right" | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load default template on mount
+  // Load session or default template on mount
   useEffect(() => {
-    loadTemplate("messu");
+    const initSession = async () => {
+      try {
+        const res = await fetch("/api/v1/designer/state");
+        if (res.ok) {
+          const snap = await res.json();
+          if (snap.state) {
+            isUpdatingFromCode.current = true;
+            setMetadata(snap.state.metadata);
+            setSpeakers(snap.state.speakers || []);
+            setHymns(snap.state.hymns || {});
+            setRundown(snap.state.rundown || []);
+            setYamlText(snap.yaml || "");
+            setValidation({
+              valid: snap.valid,
+              errors: snap.errors,
+              warnings: snap.warnings || [],
+            });
+            if (snap.chatHistory && snap.chatHistory.length > 0) {
+              setChatHistory(snap.chatHistory);
+            }
+            return;
+          }
+        }
+      } catch {
+        // Fallback to template loading if server session route unavailable
+      }
+      loadTemplate("messu");
+    };
+    initSession();
   }, []);
 
-  // Sync Visual -> Code (debounced)
+  // Sync Visual -> Code & Session (debounced)
   useEffect(() => {
     if (isUpdatingFromCode.current) {
       isUpdatingFromCode.current = false;
@@ -98,32 +134,33 @@ export const App: React.FC = () => {
 
   const syncVisualToCode = async () => {
     try {
-      const res = await fetch("/api/v1/validate", {
+      const statePayload = {
+        metadata,
+        speakers,
+        hymns,
+        connectors: {},
+        preflightFetches: [],
+        customVariables: {},
+        rundown,
+      };
+
+      const res = await fetch("/api/v1/designer/state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          state: {
-            metadata,
-            speakers,
-            hymns,
-            connectors: {},
-            preflightFetches: [],
-            customVariables: {},
-            rundown,
-          },
-        }),
+        body: JSON.stringify({ state: statePayload }),
       });
 
       if (res.ok) {
         const json = await res.json();
-        if (json.yaml) {
-          setYamlText(json.yaml);
+        const snap = json.snapshot;
+        if (snap) {
+          if (snap.yaml) setYamlText(snap.yaml);
+          setValidation({
+            valid: snap.valid,
+            errors: snap.errors,
+            warnings: snap.warnings || [],
+          });
         }
-        setValidation({
-          valid: json.valid,
-          errors: json.errors,
-          warnings: json.warnings || [],
-        });
       }
     } catch (err) {
       console.error("Sync error:", err);
@@ -133,7 +170,7 @@ export const App: React.FC = () => {
   const handleYamlChange = async (newYaml: string) => {
     setYamlText(newYaml);
     try {
-      const res = await fetch("/api/v1/validate", {
+      const res = await fetch("/api/v1/designer/state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ yaml: newYaml }),
@@ -141,18 +178,21 @@ export const App: React.FC = () => {
 
       if (res.ok) {
         const json = await res.json();
-        setValidation({
-          valid: json.valid,
-          errors: json.errors,
-          warnings: json.warnings || [],
-        });
+        const snap = json.snapshot;
+        if (snap) {
+          setValidation({
+            valid: snap.valid,
+            errors: snap.errors,
+            warnings: snap.warnings || [],
+          });
 
-        if (json.valid && json.state) {
-          isUpdatingFromCode.current = true;
-          setMetadata(json.state.metadata);
-          setSpeakers(json.state.speakers || []);
-          setHymns(json.state.hymns || {});
-          setRundown(json.state.rundown || []);
+          if (snap.valid && snap.state) {
+            isUpdatingFromCode.current = true;
+            setMetadata(snap.state.metadata);
+            setSpeakers(snap.state.speakers || []);
+            setHymns(snap.state.hymns || {});
+            setRundown(snap.state.rundown || []);
+          }
         }
       }
     } catch (err) {
@@ -177,44 +217,32 @@ export const App: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`/api/v1/templates/${templateId}`);
-      if (res.ok) {
-        const tpl = await res.json();
-        const validateRes = await fetch("/api/v1/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            state: {
-              metadata: {
-                title: tpl.rundown.title,
-                service: tpl.rundown.service || "",
-                church: tpl.rundown.church || "Riihimäen Keskuskirkko",
-                date: tpl.rundown.date || "",
-              },
-              speakers,
-              hymns,
-              connectors: tpl.rundown.connectors || {},
-              preflightFetches: tpl.rundown.preflight?.fetch || [],
-              customVariables: {},
-              rundown: tpl.rundown.rundown,
-            },
-          }),
-        });
+      const res = await fetch("/api/v1/designer/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId }),
+      });
 
-        if (validateRes.ok) {
-          const valJson = await validateRes.json();
-          if (valJson.state) {
-            setMetadata(valJson.state.metadata);
-            setSpeakers(valJson.state.speakers);
-            setHymns(valJson.state.hymns);
-            setRundown(valJson.state.rundown);
-            setYamlText(valJson.yaml || "");
-            setValidation({
-              valid: valJson.valid,
-              errors: valJson.errors,
-              warnings: valJson.warnings || [],
-            });
-          }
+      if (res.ok) {
+        const json = await res.json();
+        const snap = json.snapshot;
+        if (snap) {
+          isUpdatingFromCode.current = true;
+          setMetadata(snap.state.metadata);
+          setSpeakers(snap.state.speakers || []);
+          setHymns(snap.state.hymns || {});
+          setRundown(snap.state.rundown || []);
+          setYamlText(snap.yaml || "");
+          setValidation({
+            valid: snap.valid,
+            errors: snap.errors,
+            warnings: snap.warnings || [],
+          });
+          setPushToast({
+            success: true,
+            message: `Mallipohja ladattu: ${templateId === "messu" ? "Messu" : "Sanajumalanpalvelus"}`,
+          });
+          setTimeout(() => setPushToast(null), 3000);
         }
       }
     } catch (err) {
@@ -222,8 +250,65 @@ export const App: React.FC = () => {
     }
   };
 
+  // Agent Chat Handler
+  const handleSendAgentMessage = async (message: string) => {
+    setIsThinking(true);
+    try {
+      const res = await fetch("/api/v1/designer/agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.snapshot) {
+          isUpdatingFromCode.current = true;
+          setMetadata(data.snapshot.state.metadata);
+          setSpeakers(data.snapshot.state.speakers || []);
+          setHymns(data.snapshot.state.hymns || {});
+          setRundown(data.snapshot.state.rundown || []);
+          setYamlText(data.snapshot.yaml || "");
+          setValidation({
+            valid: data.snapshot.valid,
+            errors: data.snapshot.errors,
+            warnings: data.snapshot.warnings || [],
+          });
+          setChatHistory(data.snapshot.chatHistory || []);
+        }
+
+        if (data.actionsExecuted && data.actionsExecuted.length > 0) {
+          setPushToast({
+            success: true,
+            message: `Agentti päivitti ajolistaa (${data.actionsExecuted.length} toimenpidettä)!`,
+          });
+          setTimeout(() => setPushToast(null), 4000);
+        }
+      }
+    } catch (err: any) {
+      console.error("Agent chat error:", err);
+      setPushToast({
+        success: false,
+        message: `Agenttivirhe: ${err.message}`,
+      });
+      setTimeout(() => setPushToast(null), 4000);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const handleClearChatHistory = () => {
+    setChatHistory([
+      {
+        id: `msg_cleared_${Date.now()}`,
+        role: "assistant",
+        content: "Keskusteluhistoria tyhjennetty. Miten voin auttaa ajolistan laadinnassa?",
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+  };
+
   const handlePushToPirundown = async () => {
-    if (!validation.valid) return;
     setIsPushing(true);
     setPushToast(null);
 
@@ -288,30 +373,18 @@ export const App: React.FC = () => {
     setTimeout(() => setPushToast(null), 4000);
   };
 
-  // --- Speaker Registry Helpers ---
-  const handleAddSpeaker = () => {
+  // --- Speaker Management Handlers ---
+  const handleAddSpeaker = (spk: Omit<SpeakerParticipant, "id">) => {
     const newSpk: SpeakerParticipant = {
+      ...spk,
       id: `spk_${Date.now()}`,
-      role: "Avustava pappi",
-      name: "",
-      hasName: false,
-      isRoleOnly: true,
     };
-    setSpeakers([...speakers, newSpk]);
+    setSpeakers((prev) => [...prev, newSpk]);
   };
 
-  const handleUpdateSpeaker = (id: string, updates: Partial<SpeakerParticipant>) => {
+  const handleUpdateSpeaker = (id: string, patch: Partial<SpeakerParticipant>) => {
     setSpeakers((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        const next = { ...s, ...updates };
-        const hasName = Boolean(next.name && next.name.trim().length > 0);
-        return {
-          ...next,
-          hasName,
-          isRoleOnly: !hasName,
-        };
-      })
+      prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
     );
   };
 
@@ -319,10 +392,32 @@ export const App: React.FC = () => {
     setSpeakers((prev) => prev.filter((s) => s.id !== id));
   };
 
-  // --- Mouse Drag Resizing Logic ---
-  const handleMouseDownSplit = (e: React.MouseEvent) => {
+  // --- Rundown Management Handlers ---
+  const handleAddItem = (item: RundownItemData, section?: string) => {
+    setRundown((prev) => [
+      ...prev,
+      { ...item, section: section || item.section || "Johdanto" },
+    ]);
+  };
+
+  const handleUpdateItem = (id: string, patch: Partial<RundownItemData>) => {
+    setRundown((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setRundown((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleReorderRundown = (newRundown: RundownItemData[]) => {
+    setRundown(newRundown);
+  };
+
+  // --- Drag Resizing Handlers ---
+  const handleMouseDownSplit = (type: "split2col" | "split3col_1" | "split3col_2") => (e: React.MouseEvent) => {
     e.preventDefault();
-    isDraggingSplit.current = true;
+    activeDragSplit.current = type;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   };
@@ -336,13 +431,28 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // Split view divider drag
-      if (isDraggingSplit.current && containerRef.current) {
+      // 2-column or 3-column divider drag
+      if (activeDragSplit.current && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const offsetX = e.clientX - rect.left;
-        const newPercent = (offsetX / rect.width) * 100;
-        const clamped = Math.max(25, Math.min(75, newPercent));
-        setSplitRatio(Math.round(clamped));
+        const currentPercent = (offsetX / rect.width) * 100;
+
+        if (activeDragSplit.current === "split2col") {
+          const clamped = Math.max(20, Math.min(80, currentPercent));
+          setSplitRatio(Math.round(clamped));
+        } else if (activeDragSplit.current === "split3col_1") {
+          // Adjust Col 1 vs Col 2
+          const clampedCol1 = Math.max(20, Math.min(55, currentPercent));
+          setColRatio1(Math.round(clampedCol1));
+        } else if (activeDragSplit.current === "split3col_2") {
+          // Adjust Col 2 vs Col 3
+          const col1 = colRatio1;
+          const targetCol2 = currentPercent - col1;
+          const clampedCol2 = Math.max(20, Math.min(60, targetCol2));
+          if (col1 + clampedCol2 < 82) {
+            setColRatio2(Math.round(clampedCol2));
+          }
+        }
       }
 
       // Page width narrowing drag
@@ -365,8 +475,8 @@ export const App: React.FC = () => {
     };
 
     const handleMouseUp = () => {
-      if (isDraggingSplit.current || isDraggingPageWidth.current) {
-        isDraggingSplit.current = false;
+      if (activeDragSplit.current || isDraggingPageWidth.current) {
+        activeDragSplit.current = null;
         isDraggingPageWidth.current = null;
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
@@ -379,7 +489,9 @@ export const App: React.FC = () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, []);
+  }, [colRatio1, colRatio2]);
+
+  const col3Ratio = Math.max(15, 100 - colRatio1 - colRatio2);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-on-surface">
@@ -402,7 +514,20 @@ export const App: React.FC = () => {
       {/* View Switcher & Page Width Sub-bar */}
       <div className="h-9 px-4 bg-surface-container-low border-b border-outline-variant/15 flex items-center justify-between text-xs shrink-0 select-none">
         {/* Left: View Mode Switches */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setViewMode("3col")}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
+              viewMode === "3col"
+                ? "bg-surface-container-high text-primary shadow-xs"
+                : "text-outline hover:text-on-surface"
+            }`}
+            title="3 palstaa: Visuaalinen laadinta, YAML-koodi ja AI-Agentti rinnakkain"
+          >
+            <Columns3 className="w-3.5 h-3.5" />
+            <span>3-palstaa (Kaikki)</span>
+          </button>
           <button
             type="button"
             onClick={() => setViewMode("split")}
@@ -411,9 +536,10 @@ export const App: React.FC = () => {
                 ? "bg-surface-container-high text-primary shadow-xs"
                 : "text-outline hover:text-on-surface"
             }`}
+            title="2 palstaa: Visuaalinen ja YAML-koodi"
           >
             <Columns2 className="w-3.5 h-3.5" />
-            <span>Jaettu näkymä (Split)</span>
+            <span>2-palstaa</span>
           </button>
           <button
             type="button"
@@ -425,7 +551,7 @@ export const App: React.FC = () => {
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Vain visuaalinen laadinta</span>
+            <span>Visuaalinen</span>
           </button>
           <button
             type="button"
@@ -437,7 +563,19 @@ export const App: React.FC = () => {
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>Vain YAML-koodi</span>
+            <span>Koodi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("agent")}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
+              viewMode === "agent"
+                ? "bg-surface-container-high text-primary shadow-xs"
+                : "text-outline hover:text-on-surface"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span>Agentti ✨</span>
           </button>
         </div>
 
@@ -533,13 +671,18 @@ export const App: React.FC = () => {
           style={{ width: `${pageWidthPercent}%` }}
           className="h-full flex overflow-hidden border-x border-outline-variant/15 bg-background shadow-lg transition-[width] duration-75"
         >
-          {/* Left Side: Visual Designer */}
-          {(viewMode === "split" || viewMode === "visual") && (
+          {/* Column 1: Visual Designer */}
+          {(viewMode === "3col" || viewMode === "split" || viewMode === "visual") && (
             <div
               style={{
-                width: viewMode === "split" ? `${splitRatio}%` : "100%",
+                width:
+                  viewMode === "3col"
+                    ? `${colRatio1}%`
+                    : viewMode === "split"
+                    ? `${splitRatio}%`
+                    : "100%",
               }}
-              className="h-full overflow-y-auto p-4 flex flex-col gap-4"
+              className="h-full overflow-y-auto p-4 flex flex-col gap-4 shrink-0"
             >
               {/* Variable Interpolation Warnings */}
               <VariableWarnings warnings={validation.warnings} />
@@ -548,56 +691,56 @@ export const App: React.FC = () => {
               <div
                 onClick={() => setShowServiceInfoModal(true)}
                 className="p-3.5 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 cursor-pointer flex items-center justify-between gap-3 transition-all group shadow-xs select-none"
-                title="Avaa palveluksen perustiedot, virret ja henkilöt"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
-                    <Church className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                    <Church className="w-5 h-5" />
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-xs text-on-surface">
-                        {metadata.title || "Messu"}
+                  <div>
+                    <h2 className="text-sm font-semibold text-on-surface flex items-center gap-2">
+                      {metadata.title}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">
+                        {metadata.service || "Pääjumalanpalvelus"}
                       </span>
-                      {metadata.service && (
-                        <span className="text-[11px] text-primary font-medium px-2 py-0.5 rounded-full bg-primary/10">
-                          {metadata.service}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-outline font-mono">
-                        {metadata.date}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-outline truncate flex items-center gap-2 mt-0.5">
+                    </h2>
+                    <p className="text-xs text-outline flex items-center gap-2 mt-0.5">
                       <span>{metadata.church}</span>
                       <span>•</span>
-                      <span>{speakers.length} osallistujaa</span>
-                      <span>•</span>
-                      <span>{Object.keys(hymns || {}).length} virttä</span>
-                    </div>
+                      <span>{metadata.date}</span>
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-primary bg-primary/15 group-hover:bg-primary/25 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5"
-                  >
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Muokkaa tietoja & henkilöitä</span>
-                  </button>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-outline bg-surface-container-lowest/80 px-2.5 py-1 rounded-lg border border-outline-variant/20">
+                    <Sliders className="w-3.5 h-3.5 text-primary" />
+                    <span>Muokkaa perustietoja & virsiä</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Hierarchical Rundown & Cue Items */}
-              <SectionList rundown={rundown} onUpdateRundown={setRundown} />
+              {/* Liturgical Rundown Items grouped by Section */}
+              <SectionList
+                rundown={rundown}
+                onUpdateRundown={setRundown}
+              />
             </div>
           )}
 
-          {/* Split Resizer Divider Handle */}
+          {/* Divider between Col 1 and Col 2 */}
+          {viewMode === "3col" && (
+            <div
+              onMouseDown={handleMouseDownSplit("split3col_1")}
+              className="w-2 hover:w-2.5 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
+              title="Säädä visuaalisen laadinnan ja koodin suhdetta"
+            >
+              <div className="w-1 h-8 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
+            </div>
+          )}
+
           {viewMode === "split" && (
             <div
-              onMouseDown={handleMouseDownSplit}
+              onMouseDown={handleMouseDownSplit("split2col")}
               className="w-2.5 hover:w-3 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
               title="Säädä jaetun näkymän leveyttä vetämällä"
             >
@@ -605,18 +748,52 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Right Side: Synchronized YAML Editor with Line Numbers */}
-          {(viewMode === "split" || viewMode === "code") && (
+          {/* Column 2: Synchronized YAML Editor with Line Numbers */}
+          {(viewMode === "3col" || viewMode === "split" || viewMode === "code") && (
             <div
               style={{
-                width: viewMode === "split" ? `${100 - splitRatio}%` : "100%",
+                width:
+                  viewMode === "3col"
+                    ? `${colRatio2}%`
+                    : viewMode === "split"
+                    ? `${100 - splitRatio}%`
+                    : "100%",
               }}
-              className="p-4 h-full overflow-hidden"
+              className="p-3 h-full overflow-hidden shrink-0"
             >
               <YamlEditor
                 yamlText={yamlText}
                 errors={validation.errors}
                 onChangeYaml={handleYamlChange}
+              />
+            </div>
+          )}
+
+          {/* Divider between Col 2 and Col 3 */}
+          {viewMode === "3col" && (
+            <div
+              onMouseDown={handleMouseDownSplit("split3col_2")}
+              className="w-2 hover:w-2.5 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
+              title="Säädä koodin ja agentin suhdetta"
+            >
+              <div className="w-1 h-8 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
+            </div>
+          )}
+
+          {/* Column 3: Rundown Designing Agent & Chat History */}
+          {(viewMode === "3col" || viewMode === "agent") && (
+            <div
+              style={{
+                width: viewMode === "3col" ? `${col3Ratio}%` : "100%",
+              }}
+              className="p-3 h-full overflow-hidden flex flex-col shrink-0"
+            >
+              <AgentChatPanel
+                chatHistory={chatHistory}
+                isThinking={isThinking}
+                onSendMessage={handleSendAgentMessage}
+                onClearHistory={handleClearChatHistory}
+                className="h-full"
               />
             </div>
           )}
@@ -642,7 +819,7 @@ export const App: React.FC = () => {
           speakers={speakers}
           onChangeMetadata={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
           onChangeHymns={(h) => setHymns(h)}
-          onAddSpeaker={handleAddSpeaker}
+          onAddSpeaker={() => handleAddSpeaker({ role: "Uusi henkilö / rooli", hasName: false, isRoleOnly: true })}
           onUpdateSpeaker={handleUpdateSpeaker}
           onDeleteSpeaker={handleDeleteSpeaker}
           onClose={() => setShowServiceInfoModal(false)}

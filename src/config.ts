@@ -6,6 +6,7 @@ export interface AppConfig {
   piswitchUrl: string;
   picamUrl: string;
   pigatewayUrl: string;
+  piagentUrl: string;
   defaultParish: string;
   preferGateway: boolean;
 }
@@ -19,6 +20,7 @@ export function loadConfig(): AppConfig {
     piswitchUrl: (process.env.PISWITCH_URL || "http://localhost:3103").replace(/\/+$/, ""),
     picamUrl: (process.env.PICAM_URL || "http://localhost:3102").replace(/\/+$/, ""),
     pigatewayUrl: (process.env.PIGATEWAY_URL || "http://localhost:3000").replace(/\/+$/, ""),
+    piagentUrl: (process.env.PIAGENT_URL || "http://localhost:3301").replace(/\/+$/, ""),
     defaultParish: process.env.DEFAULT_PARISH || "Riihimäen Keskuskirkko",
     preferGateway: process.env.PREFER_GATEWAY === "true" || process.env.USE_GATEWAY === "true",
   };

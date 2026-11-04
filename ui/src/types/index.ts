@@ -96,3 +96,17 @@ export interface LectionaryData {
   };
   prayer: string;
 }
+
+export interface AgentActionPayload {
+  type: string;
+  description: string;
+  payload?: any;
+}
+
+export interface AgentChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  actions?: AgentActionPayload[];
+  timestamp: string;
+}
