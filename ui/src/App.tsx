@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type {
   ServiceMetadata,
   HymnSelection,
@@ -17,18 +17,33 @@ import { VariableWarnings } from "./components/VariableWarnings.js";
 import { LectionaryModal } from "./components/LectionaryModal.js";
 import { StorageModal } from "./components/StorageModal.js";
 import {
-  Columns2,
-  Columns3,
   Eye,
   Code2,
+  Sparkles,
   AlertCircle,
   CheckCircle2,
   Church,
   Sliders,
   GripVertical,
   RotateCcw,
-  Sparkles,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
+
+type ColumnId = "visual" | "code" | "agent";
+
+interface ColumnDef {
+  id: ColumnId;
+  label: string;
+  short: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const COLUMN_DEFS: Record<ColumnId, ColumnDef> = {
+  visual: { id: "visual", label: "Visuaalinen laadinta", short: "Visuaalinen", icon: Eye },
+  code: { id: "code", label: "YAML-koodi", short: "Koodi", icon: Code2 },
+  agent: { id: "agent", label: "Ajolista-agentti", short: "Agentti ✨", icon: Sparkles },
+};
 
 export const App: React.FC = () => {
   // --- Visual State ---
@@ -66,8 +81,16 @@ export const App: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<AgentChatMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
 
-  // --- UI View Modes & Modals ---
-  const [viewMode, setViewMode] = useState<"3col" | "split" | "visual" | "code" | "agent">("3col");
+  // --- Dynamic Column Visibility & Order ---
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnId, boolean>>({
+    visual: true,
+    code: true,
+    agent: true,
+  });
+  const [columnOrder, setColumnOrder] = useState<ColumnId[]>(["visual", "code", "agent"]);
+  const [draggedColId, setDraggedColId] = useState<ColumnId | null>(null);
+
+  // --- Modals & Status ---
   const [showServiceInfoModal, setShowServiceInfoModal] = useState(false);
   const [showLectionaryModal, setShowLectionaryModal] = useState(false);
   const [showStorageModal, setShowStorageModal] = useState(false);
@@ -75,15 +98,18 @@ export const App: React.FC = () => {
   const [pushToast, setPushToast] = useState<{ success: boolean; message: string } | null>(null);
 
   // --- Resizing & Narrowing State ---
-  const [splitRatio, setSplitRatio] = useState<number>(50); // For 2-column split (Left %)
+  const [splitRatio, setSplitRatio] = useState<number>(50); // For 2-column split (Col 1 %)
   const [colRatio1, setColRatio1] = useState<number>(38); // For 3-column (Col 1 %)
-  const [colRatio2, setColRatio2] = useState<number>(34); // For 3-column (Col 2 %) - Col 3 is (100 - colRatio1 - colRatio2)
-  const [pageWidthPercent, setPageWidthPercent] = useState<number>(100); // 50% to 100%
+  const [colRatio2, setColRatio2] = useState<number>(34); // For 3-column (Col 2 %)
+  const [pageWidthPercent, setPageWidthPercent] = useState<number>(100); // 45% to 100%
 
   const isUpdatingFromCode = useRef(false);
   const activeDragSplit = useRef<"split2col" | "split3col_1" | "split3col_2" | null>(null);
   const isDraggingPageWidth = useRef<"left" | "right" | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Which columns are currently active
+  const activeColumns = columnOrder.filter((id) => visibleColumns[id]);
 
   // Load session or default template on mount
   useEffect(() => {
@@ -392,26 +418,50 @@ export const App: React.FC = () => {
     setSpeakers((prev) => prev.filter((s) => s.id !== id));
   };
 
-  // --- Rundown Management Handlers ---
-  const handleAddItem = (item: RundownItemData, section?: string) => {
-    setRundown((prev) => [
-      ...prev,
-      { ...item, section: section || item.section || "Johdanto" },
-    ]);
+  // --- Column Toggle & Drag Reordering Handlers ---
+  const handleToggleColumn = (colId: ColumnId) => {
+    if (visibleColumns[colId] && activeColumns.length <= 1) {
+      // Keep at least one column visible
+      return;
+    }
+    setVisibleColumns((prev) => ({ ...prev, [colId]: !prev[colId] }));
   };
 
-  const handleUpdateItem = (id: string, patch: Partial<RundownItemData>) => {
-    setRundown((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
-    );
+  const handleMoveColumn = (colId: ColumnId, direction: "left" | "right") => {
+    const idx = columnOrder.indexOf(colId);
+    if (idx === -1) return;
+    const targetIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= columnOrder.length) return;
+    const next = [...columnOrder];
+    const temp = next[idx]!;
+    next[idx] = next[targetIdx]!;
+    next[targetIdx] = temp;
+    setColumnOrder(next);
   };
 
-  const handleDeleteItem = (id: string) => {
-    setRundown((prev) => prev.filter((item) => item.id !== id));
+  const handleDragStartCol = (e: React.DragEvent, colId: ColumnId) => {
+    setDraggedColId(colId);
+    e.dataTransfer.setData("text/plain", colId);
+    e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleReorderRundown = (newRundown: RundownItemData[]) => {
-    setRundown(newRundown);
+  const handleDragOverCol = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDropCol = (e: React.DragEvent, targetColId: ColumnId) => {
+    e.preventDefault();
+    if (!draggedColId || draggedColId === targetColId) return;
+    const sourceIdx = columnOrder.indexOf(draggedColId);
+    const targetIdx = columnOrder.indexOf(targetColId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const next = [...columnOrder];
+    next.splice(sourceIdx, 1);
+    next.splice(targetIdx, 0, draggedColId);
+    setColumnOrder(next);
+    setDraggedColId(null);
   };
 
   // --- Drag Resizing Handlers ---
@@ -441,11 +491,9 @@ export const App: React.FC = () => {
           const clamped = Math.max(20, Math.min(80, currentPercent));
           setSplitRatio(Math.round(clamped));
         } else if (activeDragSplit.current === "split3col_1") {
-          // Adjust Col 1 vs Col 2
           const clampedCol1 = Math.max(20, Math.min(55, currentPercent));
           setColRatio1(Math.round(clampedCol1));
         } else if (activeDragSplit.current === "split3col_2") {
-          // Adjust Col 2 vs Col 3
           const col1 = colRatio1;
           const targetCol2 = currentPercent - col1;
           const clampedCol2 = Math.max(20, Math.min(60, targetCol2));
@@ -491,7 +539,92 @@ export const App: React.FC = () => {
     };
   }, [colRatio1, colRatio2]);
 
-  const col3Ratio = Math.max(15, 100 - colRatio1 - colRatio2);
+  // Compute column width style dynamically based on count & order
+  const getColumnWidthStyle = (indexInActive: number): React.CSSProperties => {
+    const total = activeColumns.length;
+    if (total === 1) return { width: "100%" };
+    if (total === 2) {
+      return { width: indexInActive === 0 ? `${splitRatio}%` : `${100 - splitRatio}%` };
+    }
+    // 3 active columns
+    if (indexInActive === 0) return { width: `${colRatio1}%` };
+    if (indexInActive === 1) return { width: `${colRatio2}%` };
+    return { width: `${Math.max(15, 100 - colRatio1 - colRatio2)}%` };
+  };
+
+  // Render individual column content by ID
+  const renderColumnContent = (colId: ColumnId) => {
+    switch (colId) {
+      case "visual":
+        return (
+          <div className="h-full overflow-y-auto p-4 flex flex-col gap-4">
+            <VariableWarnings warnings={validation.warnings} />
+
+            {/* Service Info & People Quick Banner (clean, borderless surface with subtle accent) */}
+            <div
+              onClick={() => setShowServiceInfoModal(true)}
+              className="p-3.5 bg-surface-container hover:bg-surface-container-high rounded-2xl cursor-pointer flex items-center justify-between gap-3 transition-all group shadow-xs select-none border-l-3 border-primary/50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform shadow-xs">
+                  <Church className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-on-surface flex items-center gap-2">
+                    {metadata.title}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+                      {metadata.service || "Pääjumalanpalvelus"}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-outline flex items-center gap-2 mt-0.5">
+                    <span>{metadata.church}</span>
+                    <span>•</span>
+                    <span>{metadata.date}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1.5 text-xs text-outline bg-surface-container-lowest/70 px-2.5 py-1 rounded-lg shadow-xs">
+                  <Sliders className="w-3.5 h-3.5 text-primary" />
+                  <span>Muokkaa perustietoja & virsiä</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Liturgical Rundown Items grouped by Section (outline-free) */}
+            <SectionList
+              rundown={rundown}
+              onUpdateRundown={setRundown}
+            />
+          </div>
+        );
+
+      case "code":
+        return (
+          <div className="p-3 h-full overflow-hidden">
+            <YamlEditor
+              yamlText={yamlText}
+              errors={validation.errors}
+              onChangeYaml={handleYamlChange}
+            />
+          </div>
+        );
+
+      case "agent":
+        return (
+          <div className="p-3 h-full overflow-hidden flex flex-col">
+            <AgentChatPanel
+              chatHistory={chatHistory}
+              isThinking={isThinking}
+              onSendMessage={handleSendAgentMessage}
+              onClearHistory={handleClearChatHistory}
+              className="h-full"
+            />
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-on-surface">
@@ -511,78 +644,86 @@ export const App: React.FC = () => {
         warningCount={validation.warnings.length}
       />
 
-      {/* View Switcher & Page Width Sub-bar */}
-      <div className="h-9 px-4 bg-surface-container-low border-b border-outline-variant/15 flex items-center justify-between text-xs shrink-0 select-none">
-        {/* Left: View Mode Switches */}
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setViewMode("3col")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-              viewMode === "3col"
-                ? "bg-surface-container-high text-primary shadow-xs"
-                : "text-outline hover:text-on-surface"
-            }`}
-            title="3 palstaa: Visuaalinen laadinta, YAML-koodi ja AI-Agentti rinnakkain"
-          >
-            <Columns3 className="w-3.5 h-3.5" />
-            <span>3-palstaa (Kaikki)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("split")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-              viewMode === "split"
-                ? "bg-surface-container-high text-primary shadow-xs"
-                : "text-outline hover:text-on-surface"
-            }`}
-            title="2 palstaa: Visuaalinen ja YAML-koodi"
-          >
-            <Columns2 className="w-3.5 h-3.5" />
-            <span>2-palstaa</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("visual")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-              viewMode === "visual"
-                ? "bg-surface-container-high text-primary shadow-xs"
-                : "text-outline hover:text-on-surface"
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Visuaalinen</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("code")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-              viewMode === "code"
-                ? "bg-surface-container-high text-primary shadow-xs"
-                : "text-outline hover:text-on-surface"
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            <span>Koodi</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("agent")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-              viewMode === "agent"
-                ? "bg-surface-container-high text-primary shadow-xs"
-                : "text-outline hover:text-on-surface"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span>Agentti ✨</span>
-          </button>
+      {/* Column Switcher Toggles & Drag-to-reorder Sub-bar */}
+      <div className="h-10 px-4 bg-surface-container-low border-b border-outline-variant/15 flex items-center justify-between text-xs shrink-0 select-none">
+        {/* Left: Draggable & Toggleable Column Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+          <span className="text-[11px] text-outline font-medium mr-1 hidden sm:inline">
+            Palstat:
+          </span>
+          {columnOrder.map((colId, idx) => {
+            const def = COLUMN_DEFS[colId];
+            const isVis = visibleColumns[colId];
+            const Icon = def.icon;
+
+            return (
+              <div
+                key={colId}
+                draggable
+                onDragStart={(e) => handleDragStartCol(e, colId)}
+                onDragOver={handleDragOverCol}
+                onDrop={(e) => handleDropCol(e, colId)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs transition-all select-none shadow-xs group cursor-move ${
+                  isVis
+                    ? "bg-surface-container-high text-on-surface shadow-xs"
+                    : "bg-surface-container-lowest/60 text-outline hover:text-on-surface opacity-60 hover:opacity-100"
+                } ${draggedColId === colId ? "opacity-30 scale-95" : ""}`}
+                title="Kytke päälle/pois klikkaamalla, tai järjestä vetämällä tai nuolilla"
+              >
+                {/* Drag Grip Handle */}
+                <GripVertical className="w-3 h-3 text-outline/40 group-hover:text-outline cursor-grab shrink-0" />
+
+                {/* Visibility Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleColumn(colId)}
+                  className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      isVis ? "bg-primary shadow-xs" : "bg-outline/30"
+                    }`}
+                  />
+                  <Icon className={`w-3.5 h-3.5 ${isVis ? "text-primary" : "text-outline/50"}`} />
+                  <span className={isVis ? "font-semibold" : "font-normal"}>{def.short}</span>
+                </button>
+
+                {/* Shift Left / Right Arrow Buttons */}
+                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 gap-0.5">
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMoveColumn(colId, "left");
+                    }}
+                    className="p-0.5 rounded hover:bg-surface-container-highest disabled:opacity-20 transition-colors"
+                    title="Siirrä vasemmalle"
+                  >
+                    <ArrowLeft className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === columnOrder.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMoveColumn(colId, "right");
+                    }}
+                    className="p-0.5 rounded hover:bg-surface-container-highest disabled:opacity-20 transition-colors"
+                    title="Siirrä oikealle"
+                  >
+                    <ArrowRight className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Right: Page Width Controls & Info */}
+        {/* Right: Page Width Controls & Live Info */}
         <div className="flex items-center gap-3">
           {/* Page Width Indicator & Presets */}
-          <div className="flex items-center gap-1.5 bg-surface-container px-2 py-0.5 rounded-lg border border-outline-variant/15 text-[11px] text-outline font-mono">
+          <div className="flex items-center gap-1.5 bg-surface-container px-2 py-0.5 rounded-lg text-[11px] text-outline font-mono shadow-xs">
             <span>Leveys: {pageWidthPercent}%</span>
             <button
               type="button"
@@ -671,132 +812,36 @@ export const App: React.FC = () => {
           style={{ width: `${pageWidthPercent}%` }}
           className="h-full flex overflow-hidden border-x border-outline-variant/15 bg-background shadow-lg transition-[width] duration-75"
         >
-          {/* Column 1: Visual Designer */}
-          {(viewMode === "3col" || viewMode === "split" || viewMode === "visual") && (
-            <div
-              style={{
-                width:
-                  viewMode === "3col"
-                    ? `${colRatio1}%`
-                    : viewMode === "split"
-                    ? `${splitRatio}%`
-                    : "100%",
-              }}
-              className="h-full overflow-y-auto p-4 flex flex-col gap-4 shrink-0"
-            >
-              {/* Variable Interpolation Warnings */}
-              <VariableWarnings warnings={validation.warnings} />
+          {activeColumns.map((colId, indexInActive) => {
+            const isLast = indexInActive === activeColumns.length - 1;
+            const style = getColumnWidthStyle(indexInActive);
 
-              {/* Service Info & People Quick Banner / Modal Opener */}
-              <div
-                onClick={() => setShowServiceInfoModal(true)}
-                className="p-3.5 bg-surface-container hover:bg-surface-container-high rounded-2xl border border-outline-variant/20 cursor-pointer flex items-center justify-between gap-3 transition-all group shadow-xs select-none"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                    <Church className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-on-surface flex items-center gap-2">
-                      {metadata.title}
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">
-                        {metadata.service || "Pääjumalanpalvelus"}
-                      </span>
-                    </h2>
-                    <p className="text-xs text-outline flex items-center gap-2 mt-0.5">
-                      <span>{metadata.church}</span>
-                      <span>•</span>
-                      <span>{metadata.date}</span>
-                    </p>
-                  </div>
+            return (
+              <React.Fragment key={colId}>
+                {/* Column Content */}
+                <div style={style} className="h-full overflow-hidden shrink-0">
+                  {renderColumnContent(colId)}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-outline bg-surface-container-lowest/80 px-2.5 py-1 rounded-lg border border-outline-variant/20">
-                    <Sliders className="w-3.5 h-3.5 text-primary" />
-                    <span>Muokkaa perustietoja & virsiä</span>
+                {/* Resizer divider between adjacent active columns */}
+                {!isLast && (
+                  <div
+                    onMouseDown={
+                      activeColumns.length === 2
+                        ? handleMouseDownSplit("split2col")
+                        : indexInActive === 0
+                        ? handleMouseDownSplit("split3col_1")
+                        : handleMouseDownSplit("split3col_2")
+                    }
+                    className="w-2 hover:w-2.5 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
+                    title="Säädä palstojen leveyttä vetämällä"
+                  >
+                    <div className="w-1 h-8 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
                   </div>
-                </div>
-              </div>
-
-              {/* Liturgical Rundown Items grouped by Section */}
-              <SectionList
-                rundown={rundown}
-                onUpdateRundown={setRundown}
-              />
-            </div>
-          )}
-
-          {/* Divider between Col 1 and Col 2 */}
-          {viewMode === "3col" && (
-            <div
-              onMouseDown={handleMouseDownSplit("split3col_1")}
-              className="w-2 hover:w-2.5 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
-              title="Säädä visuaalisen laadinnan ja koodin suhdetta"
-            >
-              <div className="w-1 h-8 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
-            </div>
-          )}
-
-          {viewMode === "split" && (
-            <div
-              onMouseDown={handleMouseDownSplit("split2col")}
-              className="w-2.5 hover:w-3 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
-              title="Säädä jaetun näkymän leveyttä vetämällä"
-            >
-              <div className="w-1 h-10 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
-            </div>
-          )}
-
-          {/* Column 2: Synchronized YAML Editor with Line Numbers */}
-          {(viewMode === "3col" || viewMode === "split" || viewMode === "code") && (
-            <div
-              style={{
-                width:
-                  viewMode === "3col"
-                    ? `${colRatio2}%`
-                    : viewMode === "split"
-                    ? `${100 - splitRatio}%`
-                    : "100%",
-              }}
-              className="p-3 h-full overflow-hidden shrink-0"
-            >
-              <YamlEditor
-                yamlText={yamlText}
-                errors={validation.errors}
-                onChangeYaml={handleYamlChange}
-              />
-            </div>
-          )}
-
-          {/* Divider between Col 2 and Col 3 */}
-          {viewMode === "3col" && (
-            <div
-              onMouseDown={handleMouseDownSplit("split3col_2")}
-              className="w-2 hover:w-2.5 bg-surface-container-high hover:bg-primary/30 cursor-col-resize flex items-center justify-center transition-all group shrink-0 select-none z-10 border-x border-outline-variant/20 hover:border-primary/50"
-              title="Säädä koodin ja agentin suhdetta"
-            >
-              <div className="w-1 h-8 rounded-full bg-outline-variant/50 group-hover:bg-primary transition-colors" />
-            </div>
-          )}
-
-          {/* Column 3: Rundown Designing Agent & Chat History */}
-          {(viewMode === "3col" || viewMode === "agent") && (
-            <div
-              style={{
-                width: viewMode === "3col" ? `${col3Ratio}%` : "100%",
-              }}
-              className="p-3 h-full overflow-hidden flex flex-col shrink-0"
-            >
-              <AgentChatPanel
-                chatHistory={chatHistory}
-                isThinking={isThinking}
-                onSendMessage={handleSendAgentMessage}
-                onClearHistory={handleClearChatHistory}
-                className="h-full"
-              />
-            </div>
-          )}
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
 
         {/* Right Page Narrowing Handle */}

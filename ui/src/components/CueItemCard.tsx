@@ -17,8 +17,6 @@ import {
   Tv,
   Music2,
   Variable,
-  Radio,
-  Repeat,
   X,
   ChevronDown,
   ChevronRight,
@@ -83,12 +81,12 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
             e.stopPropagation();
             setShowTriggerModal(true);
           }}
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-surface-container-high text-outline hover:text-on-surface hover:bg-surface-container-highest border border-outline-variant/30 transition-colors"
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-surface-container-highest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shadow-xs"
           title="Manuaalinen heräte (NEXT)"
         >
-          <Hand className="w-3 h-3" />
+          <Hand className="w-3 h-3 text-outline" />
           <span>{compact ? "Man" : "Manuaali (NEXT)"}</span>
-          {!compact && <Sliders className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
+          {!compact && <Sliders className="w-2.5 h-2.5 opacity-50 ml-0.5" />}
         </button>
       );
     }
@@ -102,17 +100,17 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
             e.stopPropagation();
             setShowTriggerModal(true);
           }}
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 border border-violet-500/30 transition-colors"
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-violet-500/15 text-violet-200 hover:bg-violet-500/25 transition-colors shadow-xs"
           title={`Puhe: "${cue.phrase}" (${pct})`}
         >
-          <Mic className="w-3 h-3 text-violet-400" />
+          <Mic className="w-3 h-3 text-violet-300" />
           <span className={`font-sans font-medium text-[11px] truncate ${compact ? "max-w-[130px]" : "max-w-[220px]"}`}>
             "{cue.phrase || "puhetta"}"
           </span>
-          <span className="text-[10px] bg-violet-500/30 px-1 py-0.2 rounded font-semibold text-violet-200">
+          <span className="text-[10px] bg-violet-500/30 px-1 py-0.2 rounded font-semibold text-violet-100">
             {pct}
           </span>
-          {!compact && <Sliders className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
+          {!compact && <Sliders className="w-2.5 h-2.5 opacity-50 ml-0.5" />}
         </button>
       );
     }
@@ -125,12 +123,12 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
             e.stopPropagation();
             setShowTriggerModal(true);
           }}
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 transition-colors shadow-xs"
           title="Ääniheräte"
         >
-          <Volume2 className="w-3 h-3 text-emerald-400" />
+          <Volume2 className="w-3 h-3 text-emerald-300" />
           <span className="font-sans font-medium text-[11px]">{cue.event || "music_stop"}</span>
-          {!compact && <Sliders className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
+          {!compact && <Sliders className="w-2.5 h-2.5 opacity-50 ml-0.5" />}
         </button>
       );
     }
@@ -142,9 +140,9 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
           e.stopPropagation();
           setShowTriggerModal(true);
         }}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 border border-blue-500/30 transition-colors"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono bg-blue-500/15 text-blue-200 hover:bg-blue-500/25 transition-colors shadow-xs"
       >
-        <Mic className="w-3 h-3" />
+        <Mic className="w-3 h-3 text-blue-300" />
         <span className="font-sans text-[11px]">{cue.type}</span>
       </button>
     );
@@ -154,50 +152,42 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
   const renderActionBadge = (action: any, actionIdx: number, compact = false) => {
     let icon = <Sliders className="w-3 h-3" />;
     let text = "toiminto";
-    let bg = "bg-surface-container-high text-on-surface-variant";
+    let bg = "bg-surface-container-highest text-on-surface-variant";
 
     if (typeof action === "string") {
       text = action;
     } else if ("cam" in action) {
-      icon = <Video className="w-3 h-3 text-blue-400" />;
+      icon = <Video className="w-3 h-3 text-sky-400" />;
       text = `Cam ${action.cam.id}:${action.cam.preset || "ptz"}`;
-      bg = "bg-blue-500/10 text-blue-300 border-blue-500/25";
+      bg = "bg-sky-500/15 text-sky-200";
     } else if ("switch" in action || "atem" in action) {
-      icon = <MonitorPlay className="w-3 h-3 text-red-400" />;
+      icon = <MonitorPlay className="w-3 h-3 text-rose-400" />;
       const sw = action.switch || action.atem;
       if (sw.cut !== undefined) text = `Cut ${sw.cut}`;
       else if (sw.dsk !== undefined) text = `DSK ${sw.dsk} ${sw.state || "toggle"}`;
       else if (sw.auto) text = "AUTO";
       else if (sw.ftb) text = "FTB";
-      bg = "bg-red-500/10 text-red-300 border-red-500/25";
+      bg = "bg-rose-500/15 text-rose-200";
     } else if ("graphic" in action) {
       icon = <Tv className="w-3 h-3 text-pink-400" />;
       const g = action.graphic;
       text = `${g.template || "strap"}[${g.role || g.action}]`;
-      bg = "bg-pink-500/10 text-pink-300 border-pink-500/25";
+      bg = "bg-pink-500/15 text-pink-200";
     } else if ("pipgm" in action) {
       icon = <Music2 className="w-3 h-3 text-amber-400" />;
       text = `Virsi ${action.pipgm.hymn || action.pipgm.slide}`;
-      bg = "bg-amber-500/10 text-amber-300 border-amber-500/25";
-    } else if ("tally" in action) {
-      icon = <Radio className="w-3 h-3 text-emerald-400" />;
-      text = `Tally ${action.tally.unit}[${action.tally.state || action.tally.cue}]`;
-      bg = "bg-emerald-500/10 text-emerald-300 border-emerald-500/25";
-    } else if ("alternate" in action) {
-      icon = <Repeat className="w-3 h-3 text-cyan-400" />;
-      text = `Vuorottelu (${action.alternate.interval_sec}s)`;
-      bg = "bg-cyan-500/10 text-cyan-300 border-cyan-500/25";
+      bg = "bg-amber-500/15 text-amber-200";
     } else if ("var" in action) {
       icon = <Variable className="w-3 h-3 text-purple-400" />;
       const keys = Object.keys(action.var);
       text = `${keys[0]}=${action.var[keys[0]]}`;
-      bg = "bg-purple-500/10 text-purple-300 border-purple-500/25";
+      bg = "bg-purple-500/15 text-purple-200";
     }
 
     return (
       <span
         key={actionIdx}
-        className={`group/action inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono border ${bg}`}
+        className={`group/action inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono shadow-xs ${bg}`}
       >
         {icon}
         <span className="font-sans text-[11px] font-medium truncate max-w-[120px]">{text}</span>
@@ -208,7 +198,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
               e.stopPropagation();
               handleRemoveAction(actionIdx);
             }}
-            className="text-outline hover:text-error transition-colors p-0.5 rounded"
+            className="text-outline hover:text-error transition-colors p-0.5 rounded ml-0.5"
             title="Poista toiminto"
           >
             <X className="w-2.5 h-2.5" />
@@ -223,7 +213,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
     return (
       <div
         onClick={onToggleCollapse}
-        className="bg-surface-container-low/80 hover:bg-surface-container-low px-3 py-2 rounded-xl border border-outline-variant/15 hover:border-outline-variant/35 transition-all flex items-center justify-between gap-3 cursor-pointer shadow-xs group"
+        className="bg-surface-container/70 hover:bg-surface-container-high/90 px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-3 cursor-pointer shadow-xs border-l-3 border-outline-variant/40 hover:border-primary group"
       >
         {/* Left: Expand toggle, Hierarchical Number & Title */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -233,13 +223,13 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
               e.stopPropagation();
               onToggleCollapse?.();
             }}
-            className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
+            className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors shrink-0"
             title="Laajenna kohta"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
-          <span className="flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded-md bg-surface-container-highest text-[11px] font-bold text-primary font-mono shrink-0">
+          <span className="flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded-md bg-surface-container-highest text-[11px] font-bold text-primary font-mono shrink-0 shadow-xs">
             {displayNum}
           </span>
 
@@ -258,39 +248,41 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           {renderTriggerBadge(true)}
 
-          {/* AI Graphics Options Pill */}
-          {(item.ai?.graphicsOptions || item.ai?.targetZone) && (
-            <button
-              type="button"
+          {/* AI Graphics Indicator Pill */}
+          {(item.ai?.targetZone || item.ai?.graphicsOptions) && (
+            <span
               onClick={(e) => {
                 e.stopPropagation();
                 setShowGraphicsModal(true);
               }}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-pink-500/15 text-pink-300 border border-pink-500/30 hover:bg-pink-500/25 transition-colors"
-              title={`AI / Grafiikat: Zone=${item.ai?.targetZone || "none"}, LT=${item.ai?.graphicsOptions?.lowerThird?.length || 0}, Overlay=${item.ai?.graphicsOptions?.overlay?.length || 0}`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-pink-500/15 text-pink-200 hover:bg-pink-500/25 transition-colors cursor-pointer shadow-xs"
+              title="Avaa AI grafiikka-asetukset"
             >
-              <Sparkles className="w-2.5 h-2.5 text-pink-400" />
-              <span>{item.ai?.targetZone || "gfx"}</span>
-            </button>
+              <Sparkles className="w-2.5 h-2.5 text-pink-300" />
+              <span>{item.ai?.targetZone || "grafiikat"}</span>
+            </span>
           )}
 
           <div className="hidden sm:flex items-center gap-1">
-            {(item.actions || []).slice(0, 3).map((act, idx) => renderActionBadge(act, idx, true))}
+            {(item.actions || []).slice(0, 3).map((act, aIdx) => renderActionBadge(act, aIdx, true))}
             {(item.actions || []).length > 3 && (
-              <span className="text-[10px] font-mono text-outline px-1 rounded bg-surface-container-high">
-                +{(item.actions || []).length - 3}
+              <span className="text-[10px] text-outline font-mono bg-surface-container-highest px-1.5 py-0.5 rounded">
+                +{item.actions.length - 3}
               </span>
             )}
           </div>
         </div>
 
-        {/* Right: Reorder & Delete Controls */}
-        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+        {/* Right: Quick Reorder & Delete */}
+        <div className="flex items-center gap-0.5 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
-            onClick={onMoveUp}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveUp();
+            }}
             disabled={index === 0}
-            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors ${
+            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors ${
               index === 0 ? "opacity-25 cursor-not-allowed" : ""
             }`}
             title="Siirrä ylemmäs"
@@ -299,9 +291,12 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
           </button>
           <button
             type="button"
-            onClick={onMoveDown}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveDown();
+            }}
             disabled={index === totalItems - 1}
-            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors ${
+            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors ${
               index === totalItems - 1 ? "opacity-25 cursor-not-allowed" : ""
             }`}
             title="Siirrä alemmas"
@@ -310,8 +305,11 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
           </button>
           <button
             type="button"
-            onClick={onDelete}
-            className="p-1 rounded text-outline hover:text-error hover:bg-error/10 transition-colors ml-0.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="p-1 rounded text-outline hover:text-error hover:bg-error/15 transition-colors ml-0.5"
             title="Poista kohta"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -323,20 +321,20 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
 
   // --- Render Expanded View ---
   return (
-    <div className="bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/20 hover:border-outline-variant/40 transition-all flex flex-col gap-2.5 shadow-sm">
+    <div className="bg-surface-container/85 hover:bg-surface-container-high/70 p-3.5 rounded-xl transition-all flex flex-col gap-2.5 shadow-sm border-l-3 border-primary/50">
       {/* Top Bar: Collapse, Hierarchical Index, ID, Section, Reorder & Delete */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
+            className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors shrink-0"
             title="Tiivistä kohta"
           >
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
 
-          <span className="flex items-center justify-center min-w-[32px] h-6 px-1.5 rounded-md bg-surface-container-highest text-xs font-bold text-primary font-mono shrink-0">
+          <span className="flex items-center justify-center min-w-[32px] h-6 px-1.5 rounded-md bg-surface-container-highest text-xs font-bold text-primary font-mono shrink-0 shadow-xs">
             {displayNum}
           </span>
 
@@ -355,7 +353,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
                 onUpdate({ ...item, section: e.target.value });
               }
             }}
-            className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 hover:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-surface-container-highest text-on-surface-variant hover:bg-surface-container-high focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-xs border-none"
             title="Vaihda tämän kohdan osiota tai luo uusi osio"
           >
             {(availableSections.length > 0
@@ -378,7 +376,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
             type="button"
             onClick={onMoveUp}
             disabled={index === 0}
-            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors ${
+            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors ${
               index === 0 ? "opacity-30 cursor-not-allowed" : ""
             }`}
             title="Siirrä ylemmäs"
@@ -389,7 +387,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
             type="button"
             onClick={onMoveDown}
             disabled={index === totalItems - 1}
-            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors ${
+            className={`p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors ${
               index === totalItems - 1 ? "opacity-30 cursor-not-allowed" : ""
             }`}
             title="Siirrä alemmas"
@@ -399,7 +397,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
           <button
             type="button"
             onClick={onDelete}
-            className="p-1 rounded text-outline hover:text-error hover:bg-error/10 transition-colors ml-1"
+            className="p-1 rounded text-outline hover:text-error hover:bg-error/15 transition-colors ml-1"
             title="Poista kohta"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -407,18 +405,18 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
         </div>
       </div>
 
-      {/* Title & Notes Editable Inputs */}
+      {/* Title & Notes Editable Inputs (Borderless with gentle contrast) */}
       <div className="flex flex-col gap-1.5">
         <input
           type="text"
-          className="w-full text-xs font-semibold bg-surface-container-high border border-outline-variant/25 rounded px-2.5 py-1 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full text-xs font-semibold bg-surface-container-lowest/65 rounded-lg px-2.5 py-1.5 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/60 border-none shadow-xs"
           value={item.title}
           onChange={(e) => onUpdate({ ...item, title: e.target.value })}
           placeholder="Kohdan otsikko..."
         />
         <input
           type="text"
-          className="w-full text-[11px] italic bg-surface-container-high/60 border border-outline-variant/15 rounded px-2 py-1 text-outline focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full text-[11px] italic bg-surface-container-lowest/40 rounded-lg px-2.5 py-1 text-outline focus:outline-none focus:ring-1 focus:ring-primary/40 border-none"
           value={item.notes || ""}
           onChange={(e) => onUpdate({ ...item, notes: e.target.value })}
           placeholder="Muistiinpanot ohjaajalle tai teologiselle avustajalle..."
@@ -426,7 +424,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
       </div>
 
       {/* Bottom Bar: Trigger Badge & Action Palette */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-outline-variant/15 mt-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-outline-variant/10 mt-1">
         {/* Cue Trigger & AI Graphics */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
@@ -437,17 +435,17 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
           <button
             type="button"
             onClick={() => setShowGraphicsModal(true)}
-            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium transition-colors shadow-xs ${
               item.ai?.graphicsOptions || item.ai?.targetZone
-                ? "bg-pink-500/15 text-pink-300 border-pink-500/35 hover:bg-pink-500/25"
-                : "bg-surface-container-high text-outline hover:text-on-surface border-outline-variant/30"
+                ? "bg-pink-500/15 text-pink-200 hover:bg-pink-500/25"
+                : "bg-surface-container-highest text-outline hover:text-on-surface"
             }`}
             title="Määritä AI targetZone ja grafiikkojen sallitut listat (graphicsOptions)"
           >
-            <Sparkles className="w-3 h-3 text-pink-400" />
+            <Sparkles className="w-3 h-3 text-pink-300" />
             <span>AI Grafiikat</span>
             {item.ai?.targetZone && (
-              <span className="text-[10px] font-mono bg-pink-500/30 px-1 rounded text-pink-200">
+              <span className="text-[10px] font-mono bg-pink-500/30 px-1 rounded text-pink-100">
                 {item.ai.targetZone}
               </span>
             )}
@@ -465,7 +463,7 @@ export const CueItemCard: React.FC<CueItemCardProps> = ({
           <button
             type="button"
             onClick={() => setShowActionModal(true)}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-primary/15 text-primary hover:bg-primary/25 font-medium transition-colors shadow-xs"
             title="Lisää toiminto tähän kohtaan"
           >
             <Plus className="w-3 h-3" />

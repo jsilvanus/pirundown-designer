@@ -7,13 +7,7 @@ import {
   User,
   Zap,
   CheckCircle2,
-  AlertCircle,
   RotateCcw,
-  Sliders,
-  Tv,
-  Layers,
-  Music,
-  Maximize2,
 } from "lucide-react";
 
 interface AgentChatPanelProps {
@@ -49,19 +43,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     setInputText("");
     await onSendMessage(text);
   };
-
-  const handleChipClick = (suggestion: string) => {
-    if (isThinking) return;
-    onSendMessage(suggestion);
-  };
-
-  const QUICK_SUGGESTIONS = [
-    { label: "✨ Saarnaan pulpit & grafiikat", prompt: "Lisää saarnaan pulpit ja grafiikat" },
-    { label: "🎵 Aseta virret 332, 450, 228", prompt: "Aseta virret 332, 450, 228" },
-    { label: "📖 Tekstinlukuun ambo", prompt: "Aseta tekstinluvulle ambo ja raamattugrafiikka" },
-    { label: "⛪ Tarkista herätteet", prompt: "Tarkista herätteet ja muuttujat" },
-    { label: "📋 Lataa messu-pohja", prompt: "Lataa messu" },
-  ];
 
   // Helper to render markdown-like formatting (bold, backticks, bullet lines)
   const renderFormattedContent = (content: string) => {
@@ -118,18 +99,18 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   return (
     <div
-      className={`flex flex-col h-full bg-surface-container-low/95 rounded-xl border border-outline-variant/30 overflow-hidden shadow-lg ${className}`}
+      className={`flex flex-col h-full bg-surface-container-low/95 rounded-2xl shadow-sm overflow-hidden ${className}`}
     >
       {/* Header */}
-      <div className="px-3.5 py-2.5 bg-surface-container/80 border-b border-outline-variant/30 flex items-center justify-between shrink-0">
+      <div className="px-3.5 py-2.5 bg-surface-container/80 flex items-center justify-between shrink-0 shadow-xs">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary shadow-sm">
+          <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center text-primary shadow-xs">
             <Sparkles className="w-4 h-4 text-primary" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-on-surface">Ajolista-agentti</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/15 text-primary-fixed-dim border border-primary/30">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/15 text-primary-fixed-dim font-medium">
                 piagent
               </span>
             </div>
@@ -168,8 +149,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[11px] ${
                     isUser
-                      ? "bg-primary text-on-primary font-bold shadow-sm"
-                      : "bg-surface-container-highest text-primary border border-primary/30"
+                      ? "bg-primary text-on-primary font-bold shadow-xs"
+                      : "bg-surface-container-highest text-primary"
                   }`}
                 >
                   {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
@@ -177,10 +158,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
                 {/* Message Bubble */}
                 <div
-                  className={`rounded-2xl px-3 py-2 text-xs shadow-sm ${
+                  className={`rounded-2xl px-3 py-2 text-xs shadow-xs ${
                     isUser
                       ? "bg-primary text-on-primary rounded-tr-xs"
-                      : "bg-surface-container-high/90 text-on-surface border border-outline-variant/30 rounded-tl-xs"
+                      : "bg-surface-container-high/90 text-on-surface rounded-tl-xs"
                   }`}
                 >
                   {isUser ? (
@@ -191,7 +172,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
                   {/* Actions Executed Badge / Cards */}
                   {!isUser && msg.actions && msg.actions.length > 0 && (
-                    <div className="mt-2.5 pt-2 border-t border-outline-variant/30 space-y-1.5">
+                    <div className="mt-2.5 pt-2 border-t border-outline-variant/15 space-y-1.5">
                       <div className="flex items-center gap-1 text-[10px] font-semibold text-tertiary">
                         <Zap className="w-3 h-3 text-tertiary" />
                         <span>Suoritetut toimenpiteet ajolistaan:</span>
@@ -199,7 +180,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                       {msg.actions.map((act, aIdx) => (
                         <div
                           key={aIdx}
-                          className="bg-surface-container-highest/80 rounded-lg p-2 border border-outline-variant/40 flex items-start gap-2"
+                          className="bg-surface-container-highest/70 rounded-xl p-2 flex items-start gap-2 shadow-xs"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
@@ -231,10 +212,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         {/* Thinking Indicator */}
         {isThinking && (
           <div className="flex items-start gap-2 max-w-[85%]">
-            <div className="w-6 h-6 rounded-full bg-surface-container-highest text-primary border border-primary/30 flex items-center justify-center shrink-0">
+            <div className="w-6 h-6 rounded-full bg-surface-container-highest text-primary flex items-center justify-center shrink-0">
               <Bot className="w-3.5 h-3.5 animate-pulse" />
             </div>
-            <div className="bg-surface-container-high/90 border border-outline-variant/30 rounded-2xl rounded-tl-xs px-3.5 py-2.5 flex items-center gap-2 text-xs text-outline">
+            <div className="bg-surface-container-high/90 rounded-2xl rounded-tl-xs px-3.5 py-2.5 flex items-center gap-2 text-xs text-outline shadow-xs">
               <div className="flex gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
@@ -248,27 +229,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Quick Prompt Chips */}
-      <div className="px-3 py-1.5 border-t border-outline-variant/20 bg-surface-container/40 shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-          {QUICK_SUGGESTIONS.map((item, idx) => (
-            <button
-              key={idx}
-              type="button"
-              disabled={isThinking}
-              onClick={() => handleChipClick(item.prompt)}
-              className="text-[11px] px-2.5 py-1 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface border border-outline-variant/30 hover:border-primary/50 whitespace-nowrap transition-all shrink-0 cursor-pointer disabled:opacity-50"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Input Box */}
+      {/* Input Box (no quick chips) */}
       <form
         onSubmit={handleSubmit}
-        className="p-2.5 bg-surface-container/90 border-t border-outline-variant/30 flex items-center gap-2 shrink-0"
+        className="p-2.5 bg-surface-container/90 flex items-center gap-2 shrink-0 shadow-xs"
       >
         <input
           type="text"
@@ -276,7 +240,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Ohjaa agenttia (esim. 'Lisää saarnaan pulpit ja grafiikat')..."
           disabled={isThinking}
-          className="flex-1 bg-surface-container-highest/90 border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-60"
+          className="flex-1 bg-surface-container-highest/80 rounded-xl px-3 py-2 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/60 transition-all disabled:opacity-60"
         />
         <button
           type="submit"

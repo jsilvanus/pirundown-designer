@@ -346,7 +346,7 @@ export const SectionList: React.FC<SectionListProps> = ({
   return (
     <div className="flex flex-col gap-3">
       {/* Top Filter and Actions Toolbar */}
-      <div className="flex items-center justify-between gap-2 bg-surface-container p-2.5 rounded-xl border border-outline-variant/15 select-none min-w-0">
+      <div className="flex items-center justify-between gap-2 bg-surface-container/70 p-2.5 rounded-2xl select-none min-w-0 shadow-xs">
         {/* Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 min-w-0 flex-1">
           <Filter className="w-3.5 h-3.5 text-outline ml-1 shrink-0" />
@@ -388,13 +388,13 @@ export const SectionList: React.FC<SectionListProps> = ({
             <span className="hidden sm:inline">Laajenna</span>
           </button>
 
-          <div className="h-4 w-px bg-outline-variant/20 mx-0.5 shrink-0" />
+          <div className="h-4 w-px bg-outline-variant/15 mx-0.5 shrink-0" />
 
           {/* Add Section Button */}
           <button
             type="button"
             onClick={() => setShowAddSectionModal(true)}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-outline-variant/25 transition-colors font-medium shrink-0"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors font-medium shrink-0 shadow-xs"
             title="Luo uusi osio ajolistaan"
           >
             <FolderPlus className="w-3.5 h-3.5 text-primary" />
@@ -406,7 +406,7 @@ export const SectionList: React.FC<SectionListProps> = ({
           <button
             type="button"
             onClick={() => handleAddItem(activeSectionFilter)}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 font-semibold transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 font-semibold transition-colors shrink-0 shadow-xs"
             title="Lisää uusi kohta"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -419,7 +419,7 @@ export const SectionList: React.FC<SectionListProps> = ({
       {/* Hierarchical Sections & Items List */}
       <div className="flex flex-col gap-4">
         {displayedSections.length === 0 ? (
-          <div className="p-8 text-center bg-surface-container rounded-xl border border-dashed border-outline-variant/30 text-outline text-xs">
+          <div className="p-8 text-center bg-surface-container rounded-2xl text-outline text-xs shadow-xs">
             Ei kohtia osiossa "{activeSectionFilter}". Klikkaa "Lisää kohta" yläpuolelta aloittaaksesi.
           </div>
         ) : (
@@ -430,12 +430,12 @@ export const SectionList: React.FC<SectionListProps> = ({
             return (
               <div
                 key={group.name}
-                className="flex flex-col gap-2 rounded-2xl bg-surface-container/60 p-3 border border-outline-variant/15 shadow-xs"
+                className="flex flex-col gap-2 rounded-2xl bg-surface-container/40 p-3 shadow-xs"
               >
                 {/* Section Header with Hierarchical Number & Section Controls */}
                 <div
                   onClick={() => toggleSectionCollapse(group.name)}
-                  className="flex items-center justify-between p-2 px-3 rounded-xl bg-surface-container-high hover:bg-surface-container-highest cursor-pointer transition-colors select-none gap-2 min-w-0"
+                  className="flex items-center justify-between p-2 px-3 rounded-xl bg-surface-container-high/90 hover:bg-surface-container-highest cursor-pointer transition-colors select-none gap-2 min-w-0 border-l-3 border-primary/60 shadow-xs"
                 >
                   {/* Left: Collapse, Number, Name, Count */}
                   <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -519,7 +519,7 @@ export const SectionList: React.FC<SectionListProps> = ({
 
                   {/* Right: Consolidated Action Button Group (Never wraps or overlaps) */}
                   <div
-                    className="flex items-center gap-1 shrink-0 bg-surface-container/70 p-0.5 rounded-lg border border-outline-variant/15"
+                    className="flex items-center gap-1 shrink-0 bg-surface-container-highest/70 p-0.5 rounded-lg shadow-xs"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Move Section Up */}
